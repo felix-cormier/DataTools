@@ -131,7 +131,7 @@ class WCSim:
                 "position": [final_particle.GetStart(i) for i in range(3)],
                 "direction": [final_particle.GetDir(i) for i in range(3)],
                 "energy": final_particle.GetE()
-        }, part_array
+        }
 
     def get_digitized_hits(self):
         position = []

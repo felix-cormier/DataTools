@@ -4,10 +4,11 @@ Python 3 script for processing a list of ROOT files into .npz files
 To keep references to the original ROOT files, the file path is stored in the output.
 An index is saved for every event in the output npz file corresponding to the event index within that ROOT file (ev).
 
-Authors: Nick Prouse
+Authors: Nick Prouse, modifications by Felix Cormier
 """
 
 import argparse
+from urllib.parse import non_hierarchical
 from DataTools.root_utils.root_file_utils import *
 from DataTools.root_utils.pos_utils import *
 import h5py
@@ -140,7 +141,17 @@ def image_file(geo_dict):
 
     return 0
 
-def dump_file(infile, outfile, save_npz=False, radius =20, half_height=20, create_image_file=False):
+def dump_file(infile, outfile, save_npz=False, radius =40, half_height=40, create_image_file=False):
+    """Takes in root file, outputs h5py file
+
+    Args:
+        infile (_type_): Path and name of input root file
+        outfile (_type_): Path and name of output h5py file
+        save_npz (bool, optional): Whether to save npz. Defaults to False.
+        radius (int, optional): General radius of detector, for veto. Defaults to 20.
+        half_height (int, optional): General half height of detector, for veto. Defaults to 20.
+        create_image_file (bool, optional): Script to create a 2D image file from geo file. For ML ResNet. Defaults to False.
+    """
 
     wcsim = WCSimFile(infile)
     nevents = wcsim.nevent
@@ -151,6 +162,7 @@ def dump_file(infile, outfile, save_npz=False, radius =20, half_height=20, creat
 
     geo_dict = {}
 
+    #Make conversion between PMT number and position in Water Cherenkov Detector
     for i in range(geo_num_pmts):
         pmt = geo.GetPMT(i)
         #Seems to be off by 1? Should cross-check
@@ -207,8 +219,7 @@ def dump_file(infile, outfile, save_npz=False, radius =20, half_height=20, creat
     for ev in range(wcsim.nevent):
         wcsim.get_event(ev)
 
-        event_info, particles = wcsim.get_event_info()
-        part_array.append(particles)
+        event_info = wcsim.get_event_info()
         pid[ev] = event_info["pid"]
         position[ev] = event_info["position"]
         direction[ev] = event_info["direction"]
@@ -259,12 +270,11 @@ def dump_file(infile, outfile, save_npz=False, radius =20, half_height=20, creat
         event_id[ev] = ev
         root_file[ev] = infile
     
-    print(part_array)
-    np.save("output/particles.npy", part_array)
+
+    dump_true_hits(outfile, radius, half_height, event_id, pid, position, direction, energy, true_hit_pmt, true_hit_pmt_pos, true_hit_pmt_or, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, true_hit_time, true_hit_parent)
 
     dump_digi_hits(outfile, radius, half_height, event_id, pid, position, direction, energy, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type)
 
-    dump_true_hits(outfile, radius, half_height, event_id, pid, position, direction, energy, true_hit_pmt, true_hit_pmt_pos, true_hit_pmt_or, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, true_hit_time, true_hit_parent)
 
     if (save_npz):
         np.savez_compressed(outfile+'.npz',
@@ -298,6 +308,11 @@ def dump_file(infile, outfile, save_npz=False, radius =20, half_height=20, creat
     del wcsim
 
 def dump_digi_hits(outfile, radius, half_height, event_id, pid, position, direction, energy, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type):
+    """Save the digi hits, event variables
+
+    Args:
+        Inputs
+    """
     f = h5py.File(outfile+'_digi.hy', 'w')
 
     hit_triggers = digi_hit_trigger
@@ -411,8 +426,12 @@ def dump_digi_hits(outfile, radius, half_height, event_id, pid, position, direct
         dset_hit_pmt[hit_offset:hit_offset_next] = pmts[hit_indices]
         pmt_pos = np.array(pmt_pos)
         pmt_or = np.array(pmt_or)
-        dset_hit_pmt_pos[hit_offset:hit_offset_next] = pmt_pos[hit_indices]
-        dset_hit_pmt_or[hit_offset:hit_offset_next] = pmt_or[hit_indices]
+        #This somehow breaks if there's no PMTs, so skip if that happens
+        if hit_offset == hit_offset_next:
+            pass
+        else:
+            dset_hit_pmt_pos[hit_offset:hit_offset_next] = pmt_pos[hit_indices]
+            dset_hit_pmt_or[hit_offset:hit_offset_next] = pmt_or[hit_indices]
         hit_offset = hit_offset_next
 
     offset = offset_next
@@ -420,6 +439,11 @@ def dump_digi_hits(outfile, radius, half_height, event_id, pid, position, direct
 
 
 def dump_true_hits(outfile, radius, half_height, event_id, pid, position, direction, energy, true_hit_pmt, true_hit_pmt_pos, true_hit_pmt_or, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, hit_times, hit_parents):
+    """Save the true hits, event variables
+
+    Args:
+        Inputs
+    """
     f = h5py.File(outfile+'_truth.hy', 'w')
 
     hit_triggers = digi_hit_trigger
