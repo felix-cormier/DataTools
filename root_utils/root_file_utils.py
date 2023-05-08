@@ -73,6 +73,7 @@ class WCSim:
         # Primary particles with no parent are the initial simulation
         particles = [t for t in tracks if t.GetFlag() == 0 and t.GetParenttype() == 0]
         part_array = []
+        isConversion=False
         for part in tracks:
             test_energy = part.GetE()
             test_Start = [part.GetStart(i) for i in range(3)]
@@ -87,7 +88,8 @@ class WCSim:
                 "pid": particles[0].GetIpnu(),
                 "position": [particles[0].GetStart(i) for i in range(3)],
                 "direction": [particles[0].GetDir(i) for i in range(3)],
-                "energy": particles[0].GetE()
+                "energy": particles[0].GetE(),
+                "isConversion": isConversion
             }
         # Particle with flag -1 is the incoming neutrino or 'dummy neutrino' used for gamma
         # WCSim saves the gamma details (except position) in the neutrino track with flag -1
@@ -99,7 +101,8 @@ class WCSim:
                 "pid": 22,
                 "position": [particles[0].GetStart(i) for i in range(3)], # e+ / e- should have same position
                 "direction": [neutrino[0].GetDir(i) for i in range(3)],
-                "energy": neutrino[0].GetE()
+                "energy": neutrino[0].GetE(),
+                "isConversion": isConversion
             }
         # Check for dummy neutrino from old gamma simulations that didn't save the gamma info
         if isConversion and len(neutrino) == 1 and neutrino[0].GetIpnu() == 12 and neutrino[0].GetE() < 0.0001:
@@ -110,6 +113,7 @@ class WCSim:
                 "pid": 22,
                 "position": [particles[0].GetStart(i) for i in range(3)],  # e+ / e- should have same position
                 "direction": [p / norm for p in momentum],
+                "isConversion": isConversion,
                 "energy": sum(p.GetE() for p in particles)
             }
         # Otherwise something else is going on... guess info from the primaries
@@ -122,14 +126,111 @@ class WCSim:
            test_1 = part.GetIpnu()
            test_2 = part.GetE()
            test_3 = [part.GetStart(i) for i in range(3)]
-           test_3 = [part.GetDir(i) for i in range(3)]
+           test_4 = [part.GetStop(i) for i in range(3)]
+           test_5 = [part.GetDir(i) for i in range(3)]
            if part.GetE() > max_E:
                 final_particle = part 
                 max_E = part.GetE()
-        return {
-                "pid": final_particle.GetIpnu(),
-                "position": [final_particle.GetStart(i) for i in range(3)],
+        #If particle with highest energy is gamma, find e+/e-
+        test_final_particle_ipnu = final_particle.GetIpnu() 
+        if final_particle.GetIpnu() == 22:
+            neutrino = [t for t in tracks if t.GetFlag() == -1]
+            neutrino_ipnu = neutrino[0].GetIpnu()
+            test_position_neutrino = [neutrino[0].GetStart(i) for i in range(3)]
+            test_end_neutrino = [neutrino[0].GetStop(i) for i in range(3)]
+            test_direction_neutrino = [neutrino[0].GetDir(i) for i in range(3)] 
+            test_energy_neutrino = neutrino[0].GetE()
+            for part in particles:
+                test_1 = part.GetIpnu()
+                test_2 = part.GetE()
+                test_3 = [part.GetStart(i) for i in range(3)]
+                test_4 = [part.GetStop(i) for i in range(3)]
+                test_5 = [part.GetDir(i) for i in range(3)]
+            
+        if final_particle.GetIpnu()==22:
+            neutrino = [t for t in tracks if t.GetFlag() == -1]
+            neutrino_ipnu = neutrino[0].GetIpnu()
+            all_particles = [t for t in tracks]
+            all_particles_ipnu = []
+            '''
+            for p_all in all_particles:
+                test_all_ipnu = p_all.GetIpnu()
+                test_all_position = [p_all.GetStart(i) for i in range(3)]  
+                test_all_direction = [p_all.GetDir(i) for i in range(3)]  
+                test_all_flag = p_all.GetFlag()
+                test_all_parenttype = p_all.GetParenttype()
+                test_all_energy = p_all.GetE()
+                if test_all_ipnu != 11:
+                    print(test_all_ipnu)
+                all_particles_ipnu.append(test_all_ipnu)
+            unique_all_ipnu, all_unique_counts = np.unique(all_particles_ipnu, return_counts=True)
+            '''
+            # Check for dummy neutrino that actually stores a gamma that converts to e+ / e-
+
+            stop_photon_pos = [-9999,-9999,-9999]
+
+            for t in tracks:
+                test_position_track = [t.GetStart(i) for i in range(3)]
+                if (test_position_track[0]==stop_photon_pos[0]) and (test_position_track[1]==stop_photon_pos[1]) and (test_position_track[2]==stop_photon_pos[2]):
+                    test_t = t.GetIpnu()
+                    test_end_t = [t.GetStop(i) for i in range(3)] 
+                    test_direction_t = [t.GetDir(i) for i in range(3)] 
+                    test_energy_t= t.GetE()
+                    test_flag_t = t.GetFlag()
+                    #print(f'MATCHING TRACK position: {test_position_track}, stop: {test_end_t}, direction: {test_direction_t}, pid: {test_t}, energy: {test_energy_t}, flag: {test_flag_t}')
+
+            #for n in neutrino:
+            #    test_n = n.GetIpnu()
+            #    test_position_gamma = [p.GetStart(i) for i in range(3)] 
+            #    test_end_neutrino = [n.GetStop(i) for i in range(3)]
+            #    test_direction_neutrino = [n.GetDir(i) for i in range(3)] 
+            #    test_flag_neutrino = n.GetFlag()
+            #    test_energy_n= n.GetE()
+            #    print(f'NEUTRINO position: {test_position_neutrino}, stop: {test_end_neutrino}, direction: {test_direction_neutrino}, pid: {test_n}, energy: {test_energy_n}, flag: {test_flag_neutrino}')
+            #Only shows the electron (not positron?)
+            #Also photon with flag -1? And it has different particle directions?
+            isConversion = len(particles) == 2 and particles[0].GetIpnu() == 11
+            if isConversion and len(neutrino) == 1 and neutrino[0].GetIpnu() == 22:
+                for p in particles:
+                    test_p = p.GetIpnu()
+                    test_position_gamma = [p.GetStart(i) for i in range(3)] 
+                    test_end_gamma = [p.GetStop(i) for i in range(3)] 
+                    test_direction_gamma = [p.GetDir(i) for i in range(3)] 
+                    test_energy= p.GetE()
+                    test_flag_gamma = p.GetFlag()
+                    #print(f'position: {test_position_gamma}, stop: {test_end_gamma}, direction: {test_direction_gamma}, pid: {test_p}, energy: {test_energy}, flag: {test_flag_gamma}')
+                    #This is the photon we want
+                    #If position is exactly 0 something weird happened and the usual pid 11 got pid 22, skip it
+                    if test_p==22 and test_flag_gamma==0 and test_position_gamma[0] != 0:
+                        return {
+                            "pid": 22,
+                            #End for photon decay vertex, position for photon production vertex
+                            "position": test_position_gamma, # e+ / e- should have same position
+                            "gamma_decay_vtx": test_end_gamma, # e+ / e- should have same position
+                            "direction": test_direction_gamma,
+                            "isConversion": isConversion,
+                            "energy": test_energy
+                        }
+            else:
+                return {
+                        "pid": final_particle.GetIpnu(),
+                        "position": [final_particle.GetStart(i) for i in range(3)],
+                        "end": [final_particle.GetStop(i) for i in range(3)],
+                    "stopVol": final_particle.GetStopvol(),
+                    "startVol": final_particle.GetStartvol(),
+                    "direction": [final_particle.GetDir(i) for i in range(3)],
+                    "isConversion": isConversion,
+                    "energy": final_particle.GetE()
+            }
+        else:
+            return {
+                    "pid": final_particle.GetIpnu(),
+                    "position": [final_particle.GetStart(i) for i in range(3)],
+                    "end": [final_particle.GetStop(i) for i in range(3)],
+                "stopVol": final_particle.GetStopvol(),
+                "startVol": final_particle.GetStartvol(),
                 "direction": [final_particle.GetDir(i) for i in range(3)],
+                "isConversion": isConversion,
                 "energy": final_particle.GetE()
         }
 
