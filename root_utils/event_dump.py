@@ -155,7 +155,104 @@ def geo_file(geo_dict):
 
     return 0
 
-def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1750, create_image_file=False, create_geo_file=False):
+def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_height = 1810, create_image_file=False, create_geo_file=False):
+
+    # All data arrays are initialized here
+    skdetsim = SKDETSIM(infile)
+    nevents = skdetsim.nevent
+
+    skgeofile = np.load('data/geofile_skdetsim.npz')
+
+    event_id = np.empty(nevents, dtype=np.int32)
+    root_file = np.empty(nevents, dtype=object)
+
+    pid = np.empty(nevents, dtype=np.int32)
+    position = np.empty((nevents, 3), dtype=np.float64)
+    gamma_start_vtx = np.empty((nevents, 3), dtype=np.float64)
+    isConversion = np.empty(nevents, dtype=np.float64)
+    direction = np.empty((nevents, 3), dtype=np.float64)
+    energy = np.empty(nevents,dtype=np.float64)
+    electron_direction = np.empty((nevents, 3), dtype=np.float64)
+    electron_energy = np.empty(nevents,dtype=np.float64)
+    positron_direction = np.empty((nevents, 3), dtype=np.float64)
+    positron_energy = np.empty(nevents,dtype=np.float64)
+
+    digi_hit_pmt = np.empty(nevents, dtype=object)
+    digi_hit_pmt_pos = np.empty(nevents, dtype=object)
+    digi_hit_pmt_or = np.empty(nevents, dtype=object)
+    digi_hit_charge = np.empty(nevents, dtype=object)
+    digi_hit_time = np.empty(nevents, dtype=object)
+    digi_hit_trigger = np.empty(nevents, dtype=object)
+
+    track_id = np.empty(nevents, dtype=object)
+    track_pid = np.empty(nevents, dtype=object)
+    track_start_time = np.empty(nevents, dtype=object)
+    track_energy = np.empty(nevents, dtype=object)
+    track_start_position = np.empty(nevents, dtype=object)
+    track_stop_position = np.empty(nevents, dtype=object)
+    track_parent = np.empty(nevents, dtype=object)
+    track_flag = np.empty(nevents, dtype=object)
+
+    trigger_time = np.empty(nevents, dtype=object)
+    trigger_type = np.empty(nevents, dtype=object)
+
+    for ev in range(skdetsim.nevent):
+        skdetsim.get_event(ev)
+
+        event_info = skdetsim.get_event_info()
+        pid[ev] = event_info["pid"]
+        if event_info["isConversion"]:
+            gamma_start_vtx[ev] = event_info["gamma_start_vtx"]
+            electron_direction[ev] = event_info["direction_electron"]
+            electron_energy[ev] = event_info["energy_electron"]
+            positron_direction[ev] = event_info["direction_positron"]
+            positron_energy[ev] = event_info["energy_positron"]
+        else:
+            gamma_start_vtx[ev]= np.array([-99999,-99999,-99999])
+            electron_direction[ev] = np.array([-99999,-99999,-99999])
+            electron_energy[ev] = -999
+            positron_direction[ev] = np.array([-99999,-99999,-99999])
+            positron_energy[ev] = -999
+        isConversion[ev] = event_info["isConversion"]
+        position[ev] = event_info["position"]
+        direction[ev] = event_info["direction"]
+        energy[ev] = event_info["energy"]
+
+        track_pid[ev] = event_info["pid"]
+        track_energy[ev] = event_info["energy"]
+        track_start_position[ev] = event_info["position"]
+        track_stop_position[ev] = event_info["position"]
+
+
+        digi_hits = skdetsim.get_digitized_hits()
+        digi_hit_pmt[ev] = digi_hits["pmt"]
+        '''
+        for i,pmt_no in enumerate(digi_hit_pmt[ev]):
+            if i==0:
+                print(f"position: {skgeofile['position'][pmt_no]}, orientation: {skgeofile['orientation'][pmt_no]}")
+                digi_hit_pmt_pos[ev] = [(skgeofile['position'][pmt_no])]
+                digi_hit_pmt_or[ev] = [(skgeofile['orientation'][pmt_no])]
+            else:
+                digi_hit_pmt_pos[ev].append((skgeofile['position'][pmt_no]))
+                digi_hit_pmt_or[ev].append((skgeofile['orientation'][pmt_no]))
+        '''
+        digi_hit_charge[ev] = digi_hits["charge"]
+        digi_hit_time[ev] = digi_hits["time"]
+        digi_hit_trigger[ev] = digi_hits["trigger"]
+
+        #Add fake triggers since we don't get that info in SKDETSIM (yet?)
+        trigger_time[ev] = np.asarray([0],dtype=np.float32)
+        trigger_type[ev] = np.asarray([0],dtype=np.int32)
+
+        event_id[ev] = ev
+        root_file[ev] = infile
+
+    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=False)
+
+    del skdetsim
+
+
+def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810, create_image_file=False, create_geo_file=False):
     """Takes in root file, outputs h5py file
 
     Args:
@@ -200,10 +297,14 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1750
 
     pid = np.empty(nevents, dtype=np.int32)
     position = np.empty((nevents, 3), dtype=np.float64)
-    gamma_decay_vtx = np.empty((nevents, 3), dtype=np.float64)
+    gamma_start_vtx = np.empty((nevents, 3), dtype=np.float64)
     isConversion = np.empty(nevents, dtype=np.float64)
     direction = np.empty((nevents, 3), dtype=np.float64)
     energy = np.empty(nevents,dtype=np.float64)
+    electron_direction = np.empty((nevents, 3), dtype=np.float64)
+    electron_energy = np.empty(nevents,dtype=np.float64)
+    positron_direction = np.empty((nevents, 3), dtype=np.float64)
+    positron_energy = np.empty(nevents,dtype=np.float64)
 
     digi_hit_pmt = np.empty(nevents, dtype=object)
     digi_hit_pmt_pos = np.empty(nevents, dtype=object)
@@ -241,9 +342,17 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1750
         event_info = wcsim.get_event_info()
         pid[ev] = event_info["pid"]
         if event_info["isConversion"]:
-            gamma_decay_vtx[ev] = event_info["gamma_decay_vtx"]
+            gamma_start_vtx[ev] = event_info["gamma_start_vtx"]
+            electron_direction[ev] = event_info["direction_electron"]
+            electron_energy[ev] = event_info["energy_electron"]
+            positron_direction[ev] = event_info["direction_positron"]
+            positron_energy[ev] = event_info["energy_positron"]
         else:
-            gamma_decay_vtx[ev]= np.array([0.,0.,0.])
+            gamma_start_vtx[ev]= np.array([-99999,-99999,-99999])
+            electron_direction[ev] = np.array([-99999,-99999,-99999])
+            electron_energy[ev] = -999
+            positron_direction[ev] = np.array([-99999,-99999,-99999])
+            positron_energy[ev] = -999
         isConversion[ev] = event_info["isConversion"]
         position[ev] = event_info["position"]
         direction[ev] = event_info["direction"]
@@ -295,8 +404,8 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1750
         root_file[ev] = infile
     
 
-    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, isConversion, gamma_decay_vtx, direction, energy, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type)
-    dump_true_hits(outfile, root_file, radius, half_height, event_id, pid, position, isConversion, gamma_decay_vtx, direction, energy, true_hit_pmt, true_hit_pmt_pos, true_hit_pmt_or, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, true_hit_time, true_hit_parent)
+    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type)
+    dump_true_hits(outfile, root_file, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, true_hit_pmt, true_hit_pmt_pos, true_hit_pmt_or, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, true_hit_time, true_hit_parent)
 
 
 
@@ -306,7 +415,7 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1750
                             root_file=root_file,
                             pid=pid,
                             position=position,
-                            gamma_decay_vtx=gamma_decay_vtx,
+                            gamma_start_vtx=gamma_start_vtx,
                             direction=direction,
                             energy=energy,
                             digi_hit_pmt=digi_hit_pmt,
@@ -332,7 +441,7 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1750
                             )
     del wcsim
 
-def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position, isConversion, gamma_decay_vtx, direction, energy, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type):
+def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=True):
     """Save the digi hits, event variables
 
     Args:
@@ -354,12 +463,15 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     good_rows=0
 
     for i, (times, types, hit_trigs) in enumerate(zip(trigger_time, trigger_type, hit_triggers)):
+        print(f"i: {i}, times: {times}, types: {types}, hit_trigs: {hit_trigs}")
         good_triggers = np.where(types == 0)[0]
+        print(good_triggers)
         if len(good_triggers) == 0:
             continue
         first_trigger = good_triggers[np.argmin(times[good_triggers])]
         nhits = np.count_nonzero(hit_trigs == first_trigger)
         total_hits += nhits
+        print(f"first trig: {first_trigger}, good_trigger: {good_triggers}, nhits: {nhits}")
         if nhits >= min_hits:
             event_triggers[i] = first_trigger
             good_hits += nhits
@@ -398,10 +510,22 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_energies = f.create_dataset("energies",
                                      shape=(total_rows, 1),
                                      dtype=np.float32)
+    dset_electron_energies = f.create_dataset("energies_electron",
+                                     shape=(total_rows, 1),
+                                     dtype=np.float32)
+    dset_positron_energies = f.create_dataset("energies_positron",
+                                     shape=(total_rows, 1),
+                                     dtype=np.float32)
     dset_positions = f.create_dataset("positions",
                                       shape=(total_rows, 1, 3),
                                       dtype=np.float32)
     dset_directions=f.create_dataset("directions",
+                                    shape=(total_rows, 1, 3),
+                                    dtype=np.float32)
+    dset_electron_directions=f.create_dataset("directions_electron",
+                                    shape=(total_rows, 1, 3),
+                                    dtype=np.float32)
+    dset_positron_directions=f.create_dataset("directions_positron",
                                     shape=(total_rows, 1, 3),
                                     dtype=np.float32)
     dset_angles = f.create_dataset("angles",
@@ -413,6 +537,9 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_veto2 = f.create_dataset("veto2",
                                   shape=(total_rows,),
                                   dtype=np.bool_)
+    dset_gamma_start_vtx = f.create_dataset("gamma_start_vtx",
+                                    shape=(total_rows, 1, 3),
+                                    dtype=np.float32)
                         
 
     good_events = ~np.isnan(file_event_triggers)
@@ -422,39 +549,39 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_IDX[offset:offset_next] = event_id
     dset_PATHS[offset:offset_next] = infile
     dset_energies[offset:offset_next, :] = energy.reshape(-1, 1)
+    dset_electron_energies[offset:offset_next, :] = electron_energy.reshape(-1, 1)
+    dset_positron_energies[offset:offset_next, :] = positron_energy.reshape(-1, 1)
     dset_positions[offset:offset_next, :, :] = position.reshape(-1, 1, 3)
     dset_directions[offset:offset_next, :, :] = direction.reshape(-1, 1, 3)
+    dset_electron_directions[offset:offset_next, :, :] = electron_direction.reshape(-1, 1, 3)
+    dset_positron_directions[offset:offset_next, :, :] = positron_direction.reshape(-1, 1, 3)
 
     labels = np.full(pid.shape[0], -1)
-    label_map = {13: 0, 11: 1, 22: 2}
+    label_map = {22: 0, 11: 1, 13: 2}
     for k, v in label_map.items():
         labels[pid == k] = v
     dset_labels[offset:offset_next] = labels
-    print(f'GAMMA DECAY VTX: {gamma_decay_vtx}')
-    if np.any(isConversion):
-        dset_gamma_decay_vtx = f.create_dataset("gamma_decay_vtx",
-                                        shape=(total_rows, 1, 3),
-                                        dtype=np.float32)
-        dset_gamma_decay_vtx[offset:offset_next, :, :] = gamma_decay_vtx.reshape(-1, 1, 3)
+    dset_gamma_start_vtx[offset:offset_next, :, :] = gamma_start_vtx.reshape(-1, 1, 3)
 
 
     polars = np.arccos(direction[:, 1])
     azimuths = np.arctan2(direction[:, 2], direction[:, 0])
     dset_angles[offset:offset_next, :] = np.hstack((polars.reshape(-1, 1), azimuths.reshape(-1, 1)))
 
-    for i, (pids, energies, starts, stops) in enumerate(zip(track_pid, track_energy, track_start_position, track_stop_position)):
-        muons_above_threshold = (np.abs(pids) == 13) & (energies > 166)
-        electrons_above_threshold = (np.abs(pids) == 11) & (energies > 2)
-        gammas_above_threshold = (np.abs(pids) == 22) & (energies > 2)
-        above_threshold = muons_above_threshold | electrons_above_threshold | gammas_above_threshold
-        outside_tank = (np.linalg.norm(stops[:, (0, 1)], axis=1) > radius) | (np.abs(stops[:, 2]) > half_height)
-        dset_veto[offset+i] = np.any(above_threshold & outside_tank)
-        end_energies_estimate = energies - np.linalg.norm(stops - starts, axis=1)*2
-        muons_above_threshold = (np.abs(pids) == 13) & (end_energies_estimate > 166)
-        electrons_above_threshold = (np.abs(pids) == 11) & (end_energies_estimate > 2)
-        gammas_above_threshold = (np.abs(pids) == 22) & (end_energies_estimate > 2)
-        above_threshold = muons_above_threshold | electrons_above_threshold | gammas_above_threshold
-        dset_veto2[offset+i] = np.any(above_threshold & outside_tank)
+    if save_tracks:
+        for i, (pids, energies, starts, stops) in enumerate(zip(track_pid, track_energy, track_start_position, track_stop_position)):
+            muons_above_threshold = (np.abs(pids) == 13) & (energies > 166)
+            electrons_above_threshold = (np.abs(pids) == 11) & (energies > 2)
+            gammas_above_threshold = (np.abs(pids) == 22) & (energies > 2)
+            above_threshold = muons_above_threshold | electrons_above_threshold | gammas_above_threshold
+            outside_tank = (np.linalg.norm(stops[:, (0, 1)], axis=1) > radius) | (np.abs(stops[:, 2]) > half_height)
+            dset_veto[offset+i] = np.any(above_threshold & outside_tank)
+            end_energies_estimate = energies - np.linalg.norm(stops - starts, axis=1)*2
+            muons_above_threshold = (np.abs(pids) == 13) & (end_energies_estimate > 166)
+            electrons_above_threshold = (np.abs(pids) == 11) & (end_energies_estimate > 2)
+            gammas_above_threshold = (np.abs(pids) == 22) & (end_energies_estimate > 2)
+            above_threshold = muons_above_threshold | electrons_above_threshold | gammas_above_threshold
+            dset_veto2[offset+i] = np.any(above_threshold & outside_tank)
 
     for i, (trigs, times, charges, pmts, pmt_pos, pmt_or) in enumerate(zip(hit_triggers, digi_hit_time, digi_hit_charge, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or)):
         dset_event_hit_index[offset+i] = hit_offset
@@ -474,7 +601,7 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     f.close()
 
 
-def dump_true_hits(outfile, infile, radius, half_height, event_id, pid, position, isConversion, gamma_decay_vtx, direction, energy, true_hit_pmt, true_hit_pmt_pos, true_hit_pmt_or, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, hit_times, hit_parents):
+def dump_true_hits(outfile, infile, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, true_hit_pmt, true_hit_pmt_pos, true_hit_pmt_or, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, hit_times, hit_parents):
     """Save the true hits, event variables
 
     Args:

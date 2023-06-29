@@ -1,10 +1,90 @@
-import ROOT
 import os
+import inspect
+
 import numpy as np
+import ROOT
 
 print(os.path.abspath(ROOT.__file__))
 
 ROOT.gSystem.Load("/home/fcormier/t2k/t2k_ml_base/t2k_ml/DataTools/libWCSimRoot.so")
+
+class SKDETSIM:
+    def __init__(self,infile) -> None:
+        inFile = ROOT.TFile.Open(infile ,"READ")
+        #print(dir(inFile))
+        self.file = inFile
+        tree = inFile.T
+        self.tree = tree
+        self.nevent = tree.GetEntries()
+        #self.tree.GetEvent(0)
+        #print(f'num trigs?: {len(self.tree.T)}')
+        #print(f'nvc: {self.tree.nvc}, 0: {self.tree.ID[0]}, 1: {self.tree.ID[1]}, 3: {self.tree.ID[2]}')
+
+    def get_event(self, ev):
+        # Delete previous triggers to prevent memory leak (only if file does not change)
+        print(ev)
+        self.tree.GetEvent(ev)
+        self.nhits = len(self.tree.ID)
+        self.current_event = ev
+
+    def get_event_info(self):
+        #If electron
+        if self.tree.ipvc[0]==11: 
+            total_p = self.tree.pvc[0]+self.tree.pvc[1]+self.tree.pvc[2]
+            return {
+                "pid": self.tree.ipvc[0],
+                #End for photon decay vertex, position for photon production vertex
+                "position": [self.tree.pvc[0], self.tree.pvc[1], self.tree.pvc[2]],# e+ / e- should have same position
+                "gamma_start_vtx": [-999,-999,-999], # e+ / e- should have same position
+                "isConversion": False,
+                "energy_electron": -999,
+                "energy_positron": -999,
+                "direction_electron": [-999,-999,-999],
+                "direction_positron": [-999,-999,-999],
+                "direction": [self.tree.pvc[0]/total_p, self.tree.pvc[1]/total_p, self.tree.pvc[2]/total_p],
+                "energy": total_p
+            }
+        #If gamma
+        if self.tree.ipvc[0]==22: 
+            print("GAMMA")
+            print(f'iorgvc: {self.tree.iorgvc[0]}, pvc : {self.tree.pvc[0]}, 1: {self.tree.pvc[1]}, 3: {self.tree.pvc[2]}')
+            total_p = self.tree.pvc[0]+self.tree.pvc[1]+self.tree.pvc[2]
+            return {
+                "pid": self.tree.ipvc[0],
+                #End for photon decay vertex, position for photon production vertex
+                "position": [self.tree.pvc[0], self.tree.pvc[1], self.tree.pvc[2]],# e+ / e- should have same position
+                "gamma_start_vtx": [-999,-999,-999], # e+ / e- should have same position
+                "isConversion": False,
+                "energy_electron": -999,
+                "energy_positron": -999,
+                "direction_electron": [-999,-999,-999],
+                "direction_positron": [-999,-999,-999],
+                "direction": [self.tree.pvc[0]/total_p, self.tree.pvc[1]/total_p, self.tree.pvc[2]/total_p],
+                "energy": total_p
+            }
+    def get_digitized_hits(self):
+        position = []
+        charge = []
+        time = []
+        pmt = []
+        trigger = []
+        for hit in range(self.nhits):
+            pmt_id = self.tree.ID[hit]-1
+            position.append([self.tree.X[hit], self.tree.Y[hit], self.tree.Z[hit]])
+            charge.append(self.tree.Q[hit])
+            time.append(self.tree.T[hit])
+            pmt.append(pmt_id)
+            trigger.append(0)
+        hits = {
+            "position": np.asarray(position, dtype=np.float32),
+            "charge": np.asarray(charge, dtype=np.float32),
+            "time": np.asarray(time, dtype=np.float32),
+            "pmt": np.asarray(pmt, dtype=np.int32),
+            "trigger": np.asarray(trigger, dtype=np.int32),
+        }
+        return hits
+
+
 
 
 class WCSim:
@@ -84,6 +164,7 @@ class WCSim:
         # Check there is exactly one particle with no parent:
         if len(particles) == 1:
             # Only one primary, this is the particle being simulated
+            print("WRONG 0")
             return {
                 "pid": particles[0].GetIpnu(),
                 "position": [particles[0].GetStart(i) for i in range(3)],
@@ -97,6 +178,7 @@ class WCSim:
         # Check for dummy neutrino that actually stores a gamma that converts to e+ / e-
         isConversion = len(particles) == 2 and {p.GetIpnu() for p in particles} == {11, -11}
         if isConversion and len(neutrino) == 1 and neutrino[0].GetIpnu() == 22:
+            print("WRONG 1")
             return {
                 "pid": 22,
                 "position": [particles[0].GetStart(i) for i in range(3)], # e+ / e- should have same position
@@ -109,6 +191,7 @@ class WCSim:
             # Should be a positron/electron pair from a gamma simulation (temporary hack since no gamma truth saved)
             momentum = [sum(p.GetDir(i) * p.GetP() for p in particles) for i in range(3)]
             norm = np.sqrt(sum(p ** 2 for p in momentum))
+            print("WRONG 2")
             return {
                 "pid": 22,
                 "position": [particles[0].GetStart(i) for i in range(3)],  # e+ / e- should have same position
@@ -146,8 +229,14 @@ class WCSim:
                 test_3 = [part.GetStart(i) for i in range(3)]
                 test_4 = [part.GetStop(i) for i in range(3)]
                 test_5 = [part.GetDir(i) for i in range(3)]
+
+        #Either has two particles with one being an electron and the other photon, or two photons? WCSIm is weird
+        isConversion = len(particles) == 2 and (particles[0].GetIpnu() == 11 or (particles[0].GetIpnu() == 22 and particles[1].GetIpnu() == 22 )) 
             
-        if final_particle.GetIpnu()==22:
+        #Sometimes final_particle (the one with most energy) is not the photon during photon generation (how???)
+        #So look at tell-tale signs of conversion to see if it's a photon
+        #TODO: test if this affects e-/mu-
+        if final_particle.GetIpnu()==22 or isConversion:
             neutrino = [t for t in tracks if t.GetFlag() == -1]
             neutrino_ipnu = neutrino[0].GetIpnu()
             all_particles = [t for t in tracks]
@@ -169,15 +258,6 @@ class WCSim:
 
             stop_photon_pos = [-9999,-9999,-9999]
 
-            for t in tracks:
-                test_position_track = [t.GetStart(i) for i in range(3)]
-                if (test_position_track[0]==stop_photon_pos[0]) and (test_position_track[1]==stop_photon_pos[1]) and (test_position_track[2]==stop_photon_pos[2]):
-                    test_t = t.GetIpnu()
-                    test_end_t = [t.GetStop(i) for i in range(3)] 
-                    test_direction_t = [t.GetDir(i) for i in range(3)] 
-                    test_energy_t= t.GetE()
-                    test_flag_t = t.GetFlag()
-                    #print(f'MATCHING TRACK position: {test_position_track}, stop: {test_end_t}, direction: {test_direction_t}, pid: {test_t}, energy: {test_energy_t}, flag: {test_flag_t}')
 
             #for n in neutrino:
             #    test_n = n.GetIpnu()
@@ -189,7 +269,6 @@ class WCSim:
             #    print(f'NEUTRINO position: {test_position_neutrino}, stop: {test_end_neutrino}, direction: {test_direction_neutrino}, pid: {test_n}, energy: {test_energy_n}, flag: {test_flag_neutrino}')
             #Only shows the electron (not positron?)
             #Also photon with flag -1? And it has different particle directions?
-            isConversion = len(particles) == 2 and particles[0].GetIpnu() == 11
             if isConversion and len(neutrino) == 1 and neutrino[0].GetIpnu() == 22:
                 for p in particles:
                     test_p = p.GetIpnu()
@@ -201,14 +280,45 @@ class WCSim:
                     #print(f'position: {test_position_gamma}, stop: {test_end_gamma}, direction: {test_direction_gamma}, pid: {test_p}, energy: {test_energy}, flag: {test_flag_gamma}')
                     #This is the photon we want
                     #If position is exactly 0 something weird happened and the usual pid 11 got pid 22, skip it
+                    electron_energy = -999
+                    positron_energy = -999
+                    electron_direction = [-999,-999,-999]
+                    positron_direction = [-999,-999,-999]
+                    found_electron=False
+                    found_positron=False
                     if test_p==22 and test_flag_gamma==0 and test_position_gamma[0] != 0:
+                        test_direction_t=[-999,-999,-999]
+                        #Find electron and positron
+                        for t in tracks:
+                            test_position_track = [t.GetStart(i) for i in range(3)]
+                            if (test_position_track[0]==test_end_gamma[0]) and (test_position_track[1]==test_end_gamma[1]) and (test_position_track[2]==test_end_gamma[2]):
+                                test_t = t.GetIpnu()
+                                test_end_t = [t.GetStop(i) for i in range(3)] 
+                                test_direction_t = [t.GetDir(i) for i in range(3)] 
+                                test_energy_t= t.GetE()
+                                test_flag_t = t.GetFlag()
+                                #Arbitrarily choose electron to get direction
+                                if test_t == 11:
+                                    electron_energy = test_energy_t
+                                    electron_direction = test_direction_t
+                                    found_electron=True
+                                elif test_t == -11:
+                                    positron_energy = test_energy_t
+                                    positron_direction = test_direction_t
+                                    found_positron=True
+                                if found_electron and found_positron:
+                                    break
                         return {
                             "pid": 22,
                             #End for photon decay vertex, position for photon production vertex
-                            "position": test_position_gamma, # e+ / e- should have same position
-                            "gamma_decay_vtx": test_end_gamma, # e+ / e- should have same position
-                            "direction": test_direction_gamma,
+                            "position": test_end_gamma, # e+ / e- should have same position
+                            "gamma_start_vtx": test_position_gamma, # e+ / e- should have same position
                             "isConversion": isConversion,
+                            "energy_electron": electron_energy,
+                            "energy_positron": positron_energy,
+                            "direction_electron": electron_direction,
+                            "direction_positron": positron_direction,
+                            "direction": test_direction_gamma,
                             "energy": test_energy
                         }
             else:
@@ -218,15 +328,24 @@ class WCSim:
                         "end": [final_particle.GetStop(i) for i in range(3)],
                     "stopVol": final_particle.GetStopvol(),
                     "startVol": final_particle.GetStartvol(),
+                    "gamma_start_vtx": [-99999, -99999, -99999],
+                    "energy_electron": -999,
+                    "energy_positron": -999,
+                    "direction_electron": [-99999, -99999, -99999],
+                    "direction_positron": [-99999, -99999, -99999],
                     "direction": [final_particle.GetDir(i) for i in range(3)],
                     "isConversion": isConversion,
                     "energy": final_particle.GetE()
             }
         else:
             return {
-                    "pid": final_particle.GetIpnu(),
-                    "position": [final_particle.GetStart(i) for i in range(3)],
-                    "end": [final_particle.GetStop(i) for i in range(3)],
+                "pid": final_particle.GetIpnu(),
+                "position": [final_particle.GetStart(i) for i in range(3)],
+                "end": [final_particle.GetStop(i) for i in range(3)],
+                "energy_electron": -999,
+                "energy_positron": -999,
+                "direction_electron": [-99999, -99999, -99999],
+                "direction_positron": [-99999, -99999, -99999],
                 "stopVol": final_particle.GetStopvol(),
                 "startVol": final_particle.GetStartvol(),
                 "direction": [final_particle.GetDir(i) for i in range(3)],
