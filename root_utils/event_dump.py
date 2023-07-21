@@ -297,6 +297,7 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810
 
     pid = np.empty(nevents, dtype=np.int32)
     position = np.empty((nevents, 3), dtype=np.float64)
+    primary_charged_range = np.empty(nevents, dtype=np.float64)
     gamma_start_vtx = np.empty((nevents, 3), dtype=np.float64)
     isConversion = np.empty(nevents, dtype=np.float64)
     direction = np.empty((nevents, 3), dtype=np.float64)
@@ -355,6 +356,7 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810
             positron_energy[ev] = -999
         isConversion[ev] = event_info["isConversion"]
         position[ev] = event_info["position"]
+        primary_charged_range[ev] = event_info["range"]
         direction[ev] = event_info["direction"]
         energy[ev] = event_info["energy"]
 
@@ -404,8 +406,8 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810
         root_file[ev] = infile
     
 
-    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type)
-    dump_true_hits(outfile, root_file, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, true_hit_pmt, true_hit_pmt_pos, true_hit_pmt_or, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, true_hit_time, true_hit_parent)
+    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, primary_charged_range, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type)
+    #dump_true_hits(outfile, root_file, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, true_hit_pmt, true_hit_pmt_pos, true_hit_pmt_or, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, true_hit_time, true_hit_parent)
 
 
 
@@ -441,7 +443,7 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810
                             )
     del wcsim
 
-def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=True):
+def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position, primary_charged_range, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=True):
     """Save the digi hits, event variables
 
     Args:
@@ -516,6 +518,9 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_positron_energies = f.create_dataset("energies_positron",
                                      shape=(total_rows, 1),
                                      dtype=np.float32)
+    dset_primary_charged_range = f.create_dataset("primary_charged_range",
+                                      shape=(total_rows, 1),
+                                      dtype=np.float32)
     dset_positions = f.create_dataset("positions",
                                       shape=(total_rows, 1, 3),
                                       dtype=np.float32)
@@ -552,6 +557,7 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_electron_energies[offset:offset_next, :] = electron_energy.reshape(-1, 1)
     dset_positron_energies[offset:offset_next, :] = positron_energy.reshape(-1, 1)
     dset_positions[offset:offset_next, :, :] = position.reshape(-1, 1, 3)
+    dset_primary_charged_range[offset:offset_next, :] = primary_charged_range.reshape(-1, 1)
     dset_directions[offset:offset_next, :, :] = direction.reshape(-1, 1, 3)
     dset_electron_directions[offset:offset_next, :, :] = electron_direction.reshape(-1, 1, 3)
     dset_positron_directions[offset:offset_next, :, :] = positron_direction.reshape(-1, 1, 3)

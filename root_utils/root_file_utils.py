@@ -151,7 +151,13 @@ class WCSim:
                 "position": [particles[0].GetStart(i) for i in range(3)],
                 "direction": [particles[0].GetDir(i) for i in range(3)],
                 "energy": particles[0].GetE(),
-                "isConversion": isConversion
+                "isConversion": isConversion,
+                "gamma_start_vtx": [-99999, -99999, -99999],
+                "range": -999,
+                "energy_electron": -999,
+                "energy_positron": -999,
+                "direction_electron": [-99999, -99999, -99999],
+                "direction_positron": [-99999, -99999, -99999]
             }
         # Particle with flag -1 is the incoming neutrino or 'dummy neutrino' used for gamma
         # WCSim saves the gamma details (except position) in the neutrino track with flag -1
@@ -165,7 +171,13 @@ class WCSim:
                 "position": [particles[0].GetStart(i) for i in range(3)], # e+ / e- should have same position
                 "direction": [neutrino[0].GetDir(i) for i in range(3)],
                 "energy": neutrino[0].GetE(),
-                "isConversion": isConversion
+                "isConversion": isConversion,
+                "gamma_start_vtx": [-99999, -99999, -99999],
+                "range": -999,
+                "energy_electron": -999,
+                "energy_positron": -999,
+                "direction_electron": [-99999, -99999, -99999],
+                "direction_positron": [-99999, -99999, -99999]
             }
         # Check for dummy neutrino from old gamma simulations that didn't save the gamma info
         if isConversion and len(neutrino) == 1 and neutrino[0].GetIpnu() == 12 and neutrino[0].GetE() < 0.0001:
@@ -178,7 +190,13 @@ class WCSim:
                 "position": [particles[0].GetStart(i) for i in range(3)],  # e+ / e- should have same position
                 "direction": [p / norm for p in momentum],
                 "isConversion": isConversion,
-                "energy": sum(p.GetE() for p in particles)
+                "energy": sum(p.GetE() for p in particles),
+                "gamma_start_vtx": [-99999, -99999, -99999],
+                "range": -999,
+                "energy_electron": -999,
+                "energy_positron": -999,
+                "direction_electron": [-99999, -99999, -99999],
+                "direction_positron": [-99999, -99999, -99999]
             }
         # Otherwise something else is going on... guess info from the primaries
         #EDIT: Return info of particle with highest energy
@@ -262,7 +280,10 @@ class WCSim:
                     #This is the photon we want
                     #If position is exactly 0 something weird happened and the usual pid 11 got pid 22, skip it
                     electron_energy = -999
+                    electron_start = -999
+                    electron_end = -999
                     positron_energy = -999
+                    primary_range = -999
                     electron_direction = [-999,-999,-999]
                     positron_direction = [-999,-999,-999]
                     found_electron=False
@@ -274,6 +295,7 @@ class WCSim:
                             test_position_track = [t.GetStart(i) for i in range(3)]
                             if (test_position_track[0]==test_end_gamma[0]) and (test_position_track[1]==test_end_gamma[1]) and (test_position_track[2]==test_end_gamma[2]):
                                 test_t = t.GetIpnu()
+                                test_start_t = [t.GetStart(i) for i in range(3)] 
                                 test_end_t = [t.GetStop(i) for i in range(3)] 
                                 test_direction_t = [t.GetDir(i) for i in range(3)] 
                                 test_energy_t= t.GetE()
@@ -281,11 +303,21 @@ class WCSim:
                                 #Arbitrarily choose electron to get direction
                                 if test_t == 11:
                                     electron_energy = test_energy_t
+                                    electron_start = test_start_t
+                                    electron_end = test_end_t
+                                    e_range = math.sqrt( math.pow(electron_start[0] - electron_end[0],2) + math.pow(electron_start[1] - electron_end[1],2) + math.pow(electron_start[2] - electron_end[2],2))
+                                    if e_range > primary_range:
+                                        primary_range = e_range
                                     electron_direction = test_direction_t
                                     found_electron=True
                                 elif test_t == -11:
                                     positron_energy = test_energy_t
                                     positron_direction = test_direction_t
+                                    positron_start = test_start_t
+                                    positron_end = test_end_t
+                                    p_range = math.sqrt( math.pow(positron_start[0] - positron_end[0],2) + math.pow(positron_start[1] - positron_end[1],2) + math.pow(positron_start[2] - positron_end[2],2))
+                                    if p_range > primary_range:
+                                        primary_range = p_range
                                     found_positron=True
                                 if found_electron and found_positron:
                                     break
@@ -296,6 +328,7 @@ class WCSim:
                             "gamma_start_vtx": test_position_gamma, # e+ / e- should have same position
                             "isConversion": isConversion,
                             "energy_electron": electron_energy,
+                            "range": primary_range,
                             "energy_positron": positron_energy,
                             "direction_electron": electron_direction,
                             "direction_positron": positron_direction,
@@ -310,6 +343,7 @@ class WCSim:
                     "stopVol": final_particle.GetStopvol(),
                     "startVol": final_particle.GetStartvol(),
                     "gamma_start_vtx": [-99999, -99999, -99999],
+                    "range": -999,
                     "energy_electron": -999,
                     "energy_positron": -999,
                     "direction_electron": [-99999, -99999, -99999],
@@ -319,10 +353,14 @@ class WCSim:
                     "energy": final_particle.GetE()
             }
         else:
+            start = [final_particle.GetStart(i) for i in range(3)]
+            end = [final_particle.GetStop(i) for i in range(3)]
+            primary_range = math.sqrt( math.pow(start[0] - end[0],2) + math.pow(start[1] - end[1],2) + math.pow(start[2] - end[2],2))
             return {
                 "pid": final_particle.GetIpnu(),
                 "position": [final_particle.GetStart(i) for i in range(3)],
                 "end": [final_particle.GetStop(i) for i in range(3)],
+                "range": primary_range,
                 "energy_electron": -999,
                 "energy_positron": -999,
                 "direction_electron": [-99999, -99999, -99999],
