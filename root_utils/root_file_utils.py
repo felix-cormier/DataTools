@@ -1,5 +1,6 @@
 import os
 import inspect
+import math
 
 import numpy as np
 import ROOT
@@ -28,40 +29,20 @@ class SKDETSIM:
         self.current_event = ev
 
     def get_event_info(self):
-        #If electron
-        if self.tree.ipvc[0]==11: 
-            total_p = self.tree.pvc[0]+self.tree.pvc[1]+self.tree.pvc[2]
-            return {
-                "pid": self.tree.ipvc[0],
-                #End for photon decay vertex, position for photon production vertex
-                "position": [self.tree.pvc[0], self.tree.pvc[1], self.tree.pvc[2]],# e+ / e- should have same position
-                "gamma_start_vtx": [-999,-999,-999], # e+ / e- should have same position
-                "isConversion": False,
-                "energy_electron": -999,
-                "energy_positron": -999,
-                "direction_electron": [-999,-999,-999],
-                "direction_positron": [-999,-999,-999],
-                "direction": [self.tree.pvc[0]/total_p, self.tree.pvc[1]/total_p, self.tree.pvc[2]/total_p],
-                "energy": total_p
-            }
-        #If gamma
-        if self.tree.ipvc[0]==22: 
-            print("GAMMA")
-            print(f'iorgvc: {self.tree.iorgvc[0]}, pvc : {self.tree.pvc[0]}, 1: {self.tree.pvc[1]}, 3: {self.tree.pvc[2]}')
-            total_p = self.tree.pvc[0]+self.tree.pvc[1]+self.tree.pvc[2]
-            return {
-                "pid": self.tree.ipvc[0],
-                #End for photon decay vertex, position for photon production vertex
-                "position": [self.tree.pvc[0], self.tree.pvc[1], self.tree.pvc[2]],# e+ / e- should have same position
-                "gamma_start_vtx": [-999,-999,-999], # e+ / e- should have same position
-                "isConversion": False,
-                "energy_electron": -999,
-                "energy_positron": -999,
-                "direction_electron": [-999,-999,-999],
-                "direction_positron": [-999,-999,-999],
-                "direction": [self.tree.pvc[0]/total_p, self.tree.pvc[1]/total_p, self.tree.pvc[2]/total_p],
-                "energy": total_p
-            }
+        total_p = math.sqrt(math.pow(self.tree.pvc[0],2)+math.pow(self.tree.pvc[1],2)+math.pow(self.tree.pvc[2],2))
+        return {
+            "pid": self.tree.ipvc[0],
+            #End for photon decay vertex, position for photon production vertex
+            "position": [self.tree.posivc[0], self.tree.posivc[1], self.tree.posivc[2]],# e+ / e- should have same position
+            "gamma_start_vtx": [-999,-999,-999], # e+ / e- should have same position
+            "isConversion": False,
+            "energy_electron": -999,
+            "energy_positron": -999,
+            "direction_electron": [-999,-999,-999],
+            "direction_positron": [-999,-999,-999],
+            "direction": [self.tree.pvc[0]/total_p, self.tree.pvc[1]/total_p, self.tree.pvc[2]/total_p],
+            "energy": total_p
+        }
     def get_digitized_hits(self):
         position = []
         charge = []

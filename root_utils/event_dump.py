@@ -557,7 +557,7 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_positron_directions[offset:offset_next, :, :] = positron_direction.reshape(-1, 1, 3)
 
     labels = np.full(pid.shape[0], -1)
-    label_map = {22: 0, 11: 1, 13: 2}
+    label_map = {13: 0, 11: 1, 22: 2}
     for k, v in label_map.items():
         labels[pid == k] = v
     dset_labels[offset:offset_next] = labels
