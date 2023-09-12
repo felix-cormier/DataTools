@@ -306,6 +306,9 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810
     electron_energy = np.empty(nevents,dtype=np.float64)
     positron_direction = np.empty((nevents, 3), dtype=np.float64)
     positron_energy = np.empty(nevents,dtype=np.float64)
+    decay_electron_exists = np.empty(nevents,dtype=np.float64)
+    decay_electron_energy = np.empty(nevents,dtype=np.float64)
+    decay_electron_time = np.empty(nevents,dtype=np.float64)
 
     digi_hit_pmt = np.empty(nevents, dtype=object)
     digi_hit_pmt_pos = np.empty(nevents, dtype=object)
@@ -359,6 +362,9 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810
         primary_charged_range[ev] = event_info["range"]
         direction[ev] = event_info["direction"]
         energy[ev] = event_info["energy"]
+        decay_electron_exists[ev] = event_info["decayElectronExists"]
+        decay_electron_energy[ev] = event_info["decayElectronEnergy"]
+        decay_electron_time[ev] = event_info["decayElectronTime"]
 
         true_hits = wcsim.get_hit_photons()
         true_hit_pmt[ev] = true_hits["pmt"]
@@ -406,7 +412,7 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810
         root_file[ev] = infile
     
 
-    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, primary_charged_range, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type)
+    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, primary_charged_range, decay_electron_exists, decay_electron_energy, decay_electron_time, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type)
     #dump_true_hits(outfile, root_file, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, true_hit_pmt, true_hit_pmt_pos, true_hit_pmt_or, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, true_hit_time, true_hit_parent)
 
 
@@ -443,7 +449,7 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810
                             )
     del wcsim
 
-def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position, primary_charged_range, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=True):
+def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position, primary_charged_range, decay_electron_exists, decay_electron_energy, decay_electron_time, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=True):
     """Save the digi hits, event variables
 
     Args:
@@ -515,6 +521,15 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_electron_energies = f.create_dataset("energies_electron",
                                      shape=(total_rows, 1),
                                      dtype=np.float32)
+    dset_decay_electron_exists = f.create_dataset("decay_electron_exists",
+                                     shape=(total_rows, 1),
+                                     dtype=np.float32)
+    dset_decay_electron_energy = f.create_dataset("decay_electron_energy",
+                                     shape=(total_rows, 1),
+                                     dtype=np.float32)
+    dset_decay_electron_time = f.create_dataset("decay_electron_time",
+                                     shape=(total_rows, 1),
+                                     dtype=np.float32)
     dset_positron_energies = f.create_dataset("energies_positron",
                                      shape=(total_rows, 1),
                                      dtype=np.float32)
@@ -554,13 +569,16 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_IDX[offset:offset_next] = event_id
     dset_PATHS[offset:offset_next] = infile
     dset_energies[offset:offset_next, :] = energy.reshape(-1, 1)
-    dset_electron_energies[offset:offset_next, :] = electron_energy.reshape(-1, 1)
+    dset_electron_energies[offset:offset_next, :] = electron_energy.reshape(-1, 1) 
     dset_positron_energies[offset:offset_next, :] = positron_energy.reshape(-1, 1)
     dset_positions[offset:offset_next, :, :] = position.reshape(-1, 1, 3)
     dset_primary_charged_range[offset:offset_next, :] = primary_charged_range.reshape(-1, 1)
     dset_directions[offset:offset_next, :, :] = direction.reshape(-1, 1, 3)
     dset_electron_directions[offset:offset_next, :, :] = electron_direction.reshape(-1, 1, 3)
     dset_positron_directions[offset:offset_next, :, :] = positron_direction.reshape(-1, 1, 3)
+    dset_decay_electron_exists[offset:offset_next, :] = decay_electron_exists.reshape(-1, 1)
+    dset_decay_electron_energy[offset:offset_next, :] = decay_electron_energy.reshape(-1, 1)
+    dset_decay_electron_time[offset:offset_next, :] = decay_electron_time.reshape(-1, 1)
 
     labels = np.full(pid.shape[0], -1)
     label_map = {13: 0, 11: 1, 22: 2}
