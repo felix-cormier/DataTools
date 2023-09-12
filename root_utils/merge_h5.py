@@ -17,7 +17,11 @@ def combine_files(input_path, output_path, string):
 
     print("output file:", output_file)
     out_file = h5py.File(output_file, 'w')
-    infiles = [h5py.File(f, 'r') for f in input_files]
+    #infiles = [h5py.File(f, 'r') for f in input_files]
+    infiles = []
+    for f in input_files:
+        print(f)
+        infiles.append(h5py.File(f,'r'))
     print(f"opened input file {infiles[0].filename}")
     keys = infiles[0].keys()
     attr_keys = infiles[0].attrs.keys()

@@ -7,7 +7,25 @@ import ROOT
 
 print(os.path.abspath(ROOT.__file__))
 
-ROOT.gSystem.Load("/home/fcormier/t2k/t2k_ml_base/t2k_ml/DataTools/libWCSimRoot.so")
+
+
+class fiTQun:
+    def __init__(self,infile) -> None:
+        inFile = ROOT.TFile.Open(infile ,"READ")
+        #print(dir(inFile))
+        self.file = inFile
+        tree = inFile.fiTQun
+        self.tree = tree
+        self.nevent = tree.GetEntries()
+        #self.tree.GetEvent(0)
+        #print(f'num trigs?: {len(self.tree.T)}')
+        #print(f'nvc: {self.tree.nvc}, 0: {self.tree.ID[0]}, 1: {self.tree.ID[1]}, 3: {self.tree.ID[2]}')
+
+    def get_event(self, ev):
+        # Delete previous triggers to prevent memory leak (only if file does not change)
+        print(ev)
+        self.tree.GetEvent(ev)
+        self.current_event = ev
 
 class SKDETSIM:
     def __init__(self,infile) -> None:
@@ -30,6 +48,11 @@ class SKDETSIM:
 
     def get_event_info(self):
         total_p = math.sqrt(math.pow(self.tree.pvc[0],2)+math.pow(self.tree.pvc[1],2)+math.pow(self.tree.pvc[2],2))
+        mass_correction = 0
+        if self.tree.ipvc[0] == 11:
+            mass_correction = 0.5
+        elif self.tree.ipvc[0] == 13:
+            mass_correction = 105.7
         return {
             "pid": self.tree.ipvc[0],
             #End for photon decay vertex, position for photon production vertex
@@ -41,7 +64,7 @@ class SKDETSIM:
             "direction_electron": [-999,-999,-999],
             "direction_positron": [-999,-999,-999],
             "direction": [self.tree.pvc[0]/total_p, self.tree.pvc[1]/total_p, self.tree.pvc[2]/total_p],
-            "energy": total_p
+            "energy": math.sqrt( math.pow(total_p,2) + math.pow(mass_correction,2))
         }
     def get_digitized_hits(self):
         position = []
@@ -70,6 +93,7 @@ class SKDETSIM:
 
 class WCSim:
     def __init__(self, tree):
+        ROOT.gSystem.Load("/home/fcormier/t2k/t2k_ml_base/t2k_ml/DataTools/libWCSimRoot.so")
         print("number of entries in the geometry tree: " + str(self.geotree.GetEntries()))
         self.geotree.GetEntry(0)
         self.geo = self.geotree.wcsimrootgeom

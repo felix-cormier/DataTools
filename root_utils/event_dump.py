@@ -85,9 +85,13 @@ def pad_endcap(array, length):
 
 def image_file(geo_dict):
 
-    data = np.array(list(geo_dict.values()))[:,0] 
-    pmts = np.array(list(geo_dict.keys()))
+    print(np.array(list(geo_dict.values()))[:,0])
+    print(np.array(list(geo_dict.keys())))
+
+    data = np.array(list(geo_dict.values()))[0] 
+    pmts = np.array(list(range(len(data))))
     data = np.column_stack((data,pmts))
+
 
     endcap_min = data[data[:,2]==np.amin(data[:,2])]
     endcap_max = data[data[:,2]==np.amax(data[:,2])]
@@ -137,7 +141,7 @@ def image_file(geo_dict):
     index_array = index_array[:,[0,1]].astype(int)
 
     print(index_array.dtype)
-    np.save('output/sk_wcsim_imagefile.npy', index_array)
+    np.save('output/skdetsim_imagefile.npy', index_array)
 
     return 0
 
@@ -155,6 +159,121 @@ def geo_file(geo_dict):
 
     return 0
 
+def dump_file_fitqun(infile, outfile, label):
+    fitqun = fiTQun(infile)
+    nevents = fitqun.nevent
+
+    pid = np.empty(nevents, dtype=np.int32)
+    event_id = np.empty(nevents, dtype=np.int32)
+    root_file = np.empty(nevents, dtype=object)
+
+    e_1rnll = np.empty(nevents, dtype=np.float64)
+    mu_1rnll = np.empty(nevents, dtype=np.float64)
+
+    e_1rmom = np.empty(nevents, dtype=np.float64)
+    mu_1rmom = np.empty(nevents, dtype=np.float64)
+
+    e_1rpos = np.empty((nevents, 3), dtype=np.float64)
+    mu_1rpos = np.empty((nevents, 3), dtype=np.float64)
+
+    e_1rdir = np.empty((nevents, 3), dtype=np.float64)
+    mu_1rdir = np.empty((nevents, 3), dtype=np.float64)
+
+
+    for ev in range(nevents):
+        fitqun.get_event(ev)
+        pid[ev] = label
+        event_id[ev] = ev
+        root_file[ev] = infile
+
+        #Check if there is only 1 ring
+        if fitqun.tree.fqnse < 2:
+            print(fitqun.tree.fq1rnll[1])
+
+            e_1rnll[ev] = fitqun.tree.fq1rnll[1]
+            mu_1rnll[ev] = fitqun.tree.fq1rnll[2]
+
+            e_1rmom[ev] = fitqun.tree.fq1rmom[1]
+            mu_1rmom[ev] = fitqun.tree.fq1rmom[2]
+
+            e_1rpos[ev] = fitqun.tree.fq1rpos[1]
+            mu_1rpos[ev] = fitqun.tree.fq1rpos[2]
+
+            e_1rdir[ev] = fitqun.tree.fq1rdir[1]
+            mu_1rdir[ev] = fitqun.tree.fq1rdir[2]
+
+        #Only look at first ring if more than 1
+        else:
+            print(fitqun.tree.fq1rnll[1])
+            e_1rnll[ev] = fitqun.tree.fq1rnll[1]
+            mu_1rnll[ev] = fitqun.tree.fq1rnll[2]
+
+            e_1rmom[ev] = fitqun.tree.fq1rmom[1]
+            mu_1rmom[ev] = fitqun.tree.fq1rmom[2]
+
+            e_1rpos[ev] = fitqun.tree.fq1rpos[1]
+            mu_1rpos[ev] = fitqun.tree.fq1rpos[2]
+
+            e_1rdir[ev] = fitqun.tree.fq1rdir[1]
+            mu_1rdir[ev] = fitqun.tree.fq1rdir[2]
+
+    dump_fitqun_data(outfile, pid, event_id, root_file, e_1rnll, mu_1rnll, e_1rmom, mu_1rmom, e_1rpos, mu_1rpos, e_1rdir, mu_1rdir)
+
+def dump_fitqun_data(outfile, pid, event_id, root_file, e_1rnll, mu_1rnll, e_1rmom, mu_1rmom, e_1rpos, mu_1rpos, e_1rdir, mu_1rdir):
+
+    f = h5py.File(outfile+'_fitqun.hy', 'w')
+
+    total_rows = pid.shape[0]
+
+    dset_labels = f.create_dataset("labels",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_IDX = f.create_dataset("event_ids",
+                                shape=(total_rows,),
+                                dtype=np.int32)
+    dset_PATHS=f.create_dataset("root_files",
+                                shape=(total_rows,),
+                                dtype=h5py.special_dtype(vlen=str))
+    dset_e_1rnll = f.create_dataset("e_1rnll",
+                                   shape=(total_rows, 1),
+                                   dtype=np.float64)
+    dset_mu_1rnll = f.create_dataset("mu_1rnll",
+                                   shape=(total_rows, 1),
+                                   dtype=np.float64)
+    dset_e_1rmom = f.create_dataset("e_1rmom",
+                                   shape=(total_rows, 1),
+                                   dtype=np.float64)
+    dset_mu_1rmom = f.create_dataset("mu_1rmom",
+                                   shape=(total_rows, 1),
+                                   dtype=np.float64)
+    dset_e_1rpos = f.create_dataset("e_1rpos",
+                                      shape=(total_rows, 1, 3),
+                                      dtype=np.float32)
+    dset_mu_1rpos = f.create_dataset("mu_1rpos",
+                                      shape=(total_rows, 1, 3),
+                                      dtype=np.float32)
+    dset_e_1rdir = f.create_dataset("e_1rdir",
+                                      shape=(total_rows, 1, 3),
+                                      dtype=np.float32)
+    dset_mu_1rdir = f.create_dataset("mu_1rdir",
+                                      shape=(total_rows, 1, 3),
+                                      dtype=np.float32)
+
+    dset_labels[0:pid.shape[0]] = pid
+    dset_IDX[0:pid.shape[0]] = event_id
+    dset_PATHS[0:pid.shape[0]] = root_file
+    dset_e_1rnll[0:pid.shape[0], :] = e_1rnll.reshape(-1, 1)
+    dset_mu_1rnll[0:pid.shape[0], :] = mu_1rnll.reshape(-1, 1)
+    dset_e_1rmom[0:pid.shape[0], :] = e_1rmom.reshape(-1, 1)
+    dset_mu_1rmom[0:pid.shape[0], :] = mu_1rmom.reshape(-1, 1)
+    dset_e_1rpos[0:pid.shape[0], :, :] = e_1rpos.reshape(-1, 1, 3)
+    dset_mu_1rpos[0:pid.shape[0], :, :] = mu_1rpos.reshape(-1, 1, 3)
+    dset_e_1rdir[0:pid.shape[0], :, :] = e_1rdir.reshape(-1, 1, 3)
+    dset_mu_1rdir[0:pid.shape[0], :, :] = mu_1rdir.reshape(-1, 1, 3)
+
+    f.close()
+
+
 def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_height = 1810, create_image_file=False, create_geo_file=False):
 
     # All data arrays are initialized here
@@ -162,6 +281,9 @@ def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_heig
     nevents = skdetsim.nevent
 
     skgeofile = np.load('data/geofile_skdetsim.npz')
+    if create_image_file:
+        image_file(skgeofile)
+        exit
 
     event_id = np.empty(nevents, dtype=np.int32)
     root_file = np.empty(nevents, dtype=object)
@@ -176,6 +298,8 @@ def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_heig
     electron_energy = np.empty(nevents,dtype=np.float64)
     positron_direction = np.empty((nevents, 3), dtype=np.float64)
     positron_energy = np.empty(nevents,dtype=np.float64)
+
+    primary_charged_range = np.empty(nevents, dtype=np.float64)
 
     digi_hit_pmt = np.empty(nevents, dtype=object)
     digi_hit_pmt_pos = np.empty(nevents, dtype=object)
@@ -217,6 +341,7 @@ def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_heig
         position[ev] = event_info["position"]
         direction[ev] = event_info["direction"]
         energy[ev] = event_info["energy"]
+        primary_charged_range[ev] = -999
 
         track_pid[ev] = event_info["pid"]
         track_energy[ev] = event_info["energy"]
@@ -247,7 +372,7 @@ def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_heig
         event_id[ev] = ev
         root_file[ev] = infile
 
-    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=False)
+    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, primary_charged_range, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=False)
 
     del skdetsim
 
