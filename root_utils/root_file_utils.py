@@ -157,7 +157,9 @@ class WCSim:
         tracks = self.trigger.GetTracks()
         # Primary particles with no parent are the initial simulation
         particles = [t for t in tracks if t.GetFlag() == 0 and t.GetParenttype() == 0]
-        part_array = []
+        pid_array = []
+        decay_e_energy = 0
+        decay_electron = None
         isConversion=False
         for part in tracks:
             test_energy = part.GetE()
@@ -165,12 +167,33 @@ class WCSim:
             test_Dir = [part.GetDir(i) for i in range(3)]
             test_time = part.GetTime()
             test_pid = part.GetIpnu()
-            part_array.append([test_energy, test_time, test_pid, test_Start, test_Dir])
+            pid_array.append(test_pid)
+            if test_pid == 11:
+                if part.GetParenttype() == 13:
+                    if part.GetE() > decay_e_energy:
+                        decay_e_energy = part.GetE()
+                        decay_electron = part
+        decay_electron_exists = False
+        decay_electron_e = -999
+        decay_electron_time = -999
+        if decay_electron is None:
+            pass
+        elif decay_electron.GetE() > 10:
+            decay_electron_exists = True
+            decay_electron_e = decay_electron.GetE()
+            decay_electron_time = decay_electron.GetTime()
+
+            
+        #with open('decay_e_data.txt', 'a') as f:
+        #    f.write(f'{decay_electron.GetE()}, {decay_electron.GetTime()}\n') 
         # Check there is exactly one particle with no parent:
         if len(particles) == 1:
             # Only one primary, this is the particle being simulated
-            print("WRONG 0")
+            print(f'primary time: {particles[0].GetTime()}')
             return {
+                "decayElectronExists":decay_electron_exists,
+                "decayElectronEnergy": decay_electron_e,
+                "decayElectronTime": decay_electron_time,
                 "pid": particles[0].GetIpnu(),
                 "position": [particles[0].GetStart(i) for i in range(3)],
                 "direction": [particles[0].GetDir(i) for i in range(3)],
@@ -191,6 +214,9 @@ class WCSim:
         if isConversion and len(neutrino) == 1 and neutrino[0].GetIpnu() == 22:
             print("WRONG 1")
             return {
+                "decayElectronExists":decay_electron_exists,
+                "decayElectronEnergy": decay_electron_e,
+                "decayElectronTime": decay_electron_time,
                 "pid": 22,
                 "position": [particles[0].GetStart(i) for i in range(3)], # e+ / e- should have same position
                 "direction": [neutrino[0].GetDir(i) for i in range(3)],
@@ -210,6 +236,9 @@ class WCSim:
             norm = np.sqrt(sum(p ** 2 for p in momentum))
             print("WRONG 2")
             return {
+                "decayElectronExists":decay_electron_exists,
+                "decayElectronEnergy": decay_electron_e,
+                "decayElectronTime": decay_electron_time,
                 "pid": 22,
                 "position": [particles[0].GetStart(i) for i in range(3)],  # e+ / e- should have same position
                 "direction": [p / norm for p in momentum],
@@ -346,6 +375,9 @@ class WCSim:
                                 if found_electron and found_positron:
                                     break
                         return {
+                            "decayElectronExists":decay_electron_exists,
+                            "decayElectronEnergy": decay_electron_e,
+                            "decayElectronTime": decay_electron_time,
                             "pid": 22,
                             #End for photon decay vertex, position for photon production vertex
                             "position": test_end_gamma, # e+ / e- should have same position
@@ -360,10 +392,14 @@ class WCSim:
                             "energy": test_energy
                         }
             else:
+                print(f'primary time: {particles[0].GetTime()}')
                 return {
-                        "pid": final_particle.GetIpnu(),
-                        "position": [final_particle.GetStart(i) for i in range(3)],
-                        "end": [final_particle.GetStop(i) for i in range(3)],
+                    "decayElectronExists":decay_electron_exists,
+                    "decayElectronEnergy": decay_electron_e,
+                    "decayElectronTime": decay_electron_time,
+                    "pid": final_particle.GetIpnu(),
+                    "position": [final_particle.GetStart(i) for i in range(3)],
+                    "end": [final_particle.GetStop(i) for i in range(3)],
                     "stopVol": final_particle.GetStopvol(),
                     "startVol": final_particle.GetStartvol(),
                     "gamma_start_vtx": [-99999, -99999, -99999],
@@ -381,6 +417,9 @@ class WCSim:
             end = [final_particle.GetStop(i) for i in range(3)]
             primary_range = math.sqrt( math.pow(start[0] - end[0],2) + math.pow(start[1] - end[1],2) + math.pow(start[2] - end[2],2))
             return {
+                "decayElectronExists":decay_electron_exists,
+                "decayElectronEnergy": decay_electron_e,
+                "decayElectronTime": decay_electron_time,
                 "pid": final_particle.GetIpnu(),
                 "position": [final_particle.GetStart(i) for i in range(3)],
                 "end": [final_particle.GetStop(i) for i in range(3)],
