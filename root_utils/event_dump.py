@@ -278,7 +278,7 @@ def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_heig
 
     # All data arrays are initialized here
     skdetsim = SKDETSIM(infile)
-    nevents = skdetsim.nevent
+    nevents = skdetsim.nevent -1
 
     skgeofile = np.load('data/geofile_skdetsim.npz')
     if create_image_file:
@@ -317,11 +317,15 @@ def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_heig
     track_parent = np.empty(nevents, dtype=object)
     track_flag = np.empty(nevents, dtype=object)
 
+    decay_electron_exists = np.empty(nevents,dtype=np.float64)
+    decay_electron_energy = np.empty(nevents,dtype=np.float64)
+    decay_electron_time = np.empty(nevents,dtype=np.float64)
+
     trigger_time = np.empty(nevents, dtype=object)
     trigger_type = np.empty(nevents, dtype=object)
 
-    for ev in range(skdetsim.nevent):
-        skdetsim.get_event(ev)
+    for ev in range(skdetsim.nevent-1):
+        skdetsim.get_event(ev+1)
 
         event_info = skdetsim.get_event_info()
         pid[ev] = event_info["pid"]
@@ -372,7 +376,7 @@ def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_heig
         event_id[ev] = ev
         root_file[ev] = infile
 
-    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, primary_charged_range, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=False)
+    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, primary_charged_range, decay_electron_exists, decay_electron_energy, decay_electron_time, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=False)
 
     del skdetsim
 
@@ -706,7 +710,7 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_decay_electron_time[offset:offset_next, :] = decay_electron_time.reshape(-1, 1)
 
     labels = np.full(pid.shape[0], -1)
-    label_map = {13: 0, 11: 1, 22: 2}
+    label_map = {13: 0, 11: 1, 22: 2, 211: 2}
     for k, v in label_map.items():
         labels[pid == k] = v
     dset_labels[offset:offset_next] = labels

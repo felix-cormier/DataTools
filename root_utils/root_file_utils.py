@@ -35,7 +35,7 @@ class SKDETSIM:
         tree = inFile.T
         self.tree = tree
         self.nevent = tree.GetEntries()
-        #self.tree.GetEvent(0)
+        self.tree.GetEvent(0)
         #print(f'num trigs?: {len(self.tree.T)}')
         #print(f'nvc: {self.tree.nvc}, 0: {self.tree.ID[0]}, 1: {self.tree.ID[1]}, 3: {self.tree.ID[2]}')
 
@@ -47,12 +47,17 @@ class SKDETSIM:
         self.current_event = ev
 
     def get_event_info(self):
-        total_p = math.sqrt(math.pow(self.tree.pvc[0],2)+math.pow(self.tree.pvc[1],2)+math.pow(self.tree.pvc[2],2))
+        self.tree.GetEvent(self.current_event)
         mass_correction = 0
         if self.tree.ipvc[0] == 11:
             mass_correction = 0.5
         elif self.tree.ipvc[0] == 13:
             mass_correction = 105.7
+        elif self.tree.ipvc[0] == 211:
+            mass_correction = 139.584
+        total_p = math.sqrt(math.pow(self.tree.pvc[0],2)+math.pow(self.tree.pvc[1],2)+math.pow(self.tree.pvc[2],2))
+        if self.current_event == 0 or self.current_event == 1 or self.current_event == 2:
+            print(f'nevent: {self.current_event}, x mom : {self.tree.pvc[0]}, y mom: {self.tree.pvc[1]}, z mom: {self.tree.pvc[2]}, total p: {total_p} ')
         return {
             "pid": self.tree.ipvc[0],
             #End for photon decay vertex, position for photon production vertex
