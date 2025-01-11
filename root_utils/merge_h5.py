@@ -3,6 +3,8 @@ import h5py
 import numpy as np
 import glob
 
+from tqdm import tqdm
+
 def get_args():
     parser = argparse.ArgumentParser(description='merge hdf5 files with common datasets by concatenating them together')
     parser.add_argument('input_files', type=str, nargs='+')
@@ -10,30 +12,43 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def combine_files(input_path, output_path, string):
+def combine_files(input_path, output_path, string, specific_files=None):
 
-    input_files = glob.glob(input_path+'/*'+string+'.hy')
+    if specific_files is not None:
+        input_files = specific_files
+    else:
+        input_files = glob.glob(input_path+'/*'+string+'.hy')
+    
+
     output_file = output_path+'/'+string+'_combine.hy'
 
     print("output file:", output_file)
     out_file = h5py.File(output_file, 'w')
     #infiles = [h5py.File(f, 'r') for f in input_files]
     infiles = []
-    for f in input_files:
+    for f in tqdm(input_files):
+        f = f.replace('\n', '')
         print(f)
-        infiles.append(h5py.File(f,'r'))
+        try:
+            infiles.append(h5py.File(f,'r'))
+        except OSError:
+            print("OSError")
+            pass
     print(f"opened input file {infiles[0].filename}")
     keys = infiles[0].keys()
     attr_keys = infiles[0].attrs.keys()
-    for f in infiles[1:]:
-        print(f"opened and checking input file {f.filename}")
+    for f in tqdm(infiles[1:]):
+        #print(f"opened and checking input file {f.filename}")
         if f.keys() != keys:
+            continue
             raise KeyError(f"HDF5 file {f.filename} keys {f.keys()} do not match first file's keys {keys}.")
         if f.attrs.keys() != attr_keys:
             raise KeyError(f"HDF5 file {f.filename} attributes {f.attrs.keys()} do not match first file's attributes {attr_keys}.")
     for k in attr_keys:
         out_file.attrs[k]  = np.hstack([f.attrs[k] for f in infiles]).tolist()
     for k in keys:
+        if "energies_electron" in k or "decay_electron_exists" in k or "decay_electron_energy" in k or "decay_electron_time" in k or "energies_positron" in k or "primary_charged_range" in k or "gamma_start_vtx" in k:
+            continue
         dtype = infiles[0][k].dtype
         shape = list(infiles[0][k].shape)
         for f in infiles[1:]:

@@ -159,67 +159,339 @@ def geo_file(geo_dict):
 
     return 0
 
-def dump_file_fitqun(infile, outfile, label):
-    fitqun = fiTQun(infile)
+def dump_file_secondaries(infile, outfile):
+    print(infile)
+    secondaries = secondaries_root(infile)
+    nevents = secondaries.nevent
+
+    pid = np.empty(nevents, dtype=np.int32)
+    event_id = np.empty(nevents, dtype=np.int32)
+    root_file = np.empty(nevents, dtype=object)
+
+    position = np.empty((nevents, 3), dtype=np.float64)
+    direction = np.empty((nevents, 3), dtype=np.float64)
+    momentum = np.empty(nevents,dtype=np.float64)
+
+    qtot = np.empty(nevents, dtype=np.float64)
+
+
+    #Secondary
+    nscndprt = np.empty(nevents, dtype=np.int32)
+    vtxscnd = np.empty(nevents, dtype=object)
+    pscnd = np.empty(nevents, dtype=object)
+    iprtscnd = np.empty(nevents, dtype=object)
+    tscnd = np.empty(nevents, dtype=object)
+    iprntprt = np.empty(nevents, dtype=object)
+    lmecscnd = np.empty(nevents, dtype=object)
+    iorgprt = np.empty(nevents, dtype=object)
+    nchilds = np.empty(nevents, dtype=object)
+    pprnt = np.empty(nevents, dtype=object)
+    pprntinit = np.empty(nevents, dtype=object)
+    vtxprnt = np.empty(nevents, dtype=object)
+
+    #FQ var
+    nring = np.empty(nevents, dtype=np.int32)
+    nrun = np.empty(nevents, dtype=np.int32)
+    nev = np.empty(nevents, dtype=np.int32)
+    nsub = np.empty(nevents, dtype=np.int32)
+
+    potot = np.empty(nevents, dtype=np.float64)
+    nhit = np.empty(nevents, dtype=np.float64)
+    pomax = np.empty(nevents, dtype=np.float64)
+    potota = np.empty(nevents, dtype=np.float64)
+    nhita = np.empty(nevents, dtype=np.float64)
+    nhitac = np.empty(nevents, dtype=np.float64)
+    pomaxa = np.empty(nevents, dtype=np.float64)
+    evis = np.empty(nevents,dtype=np.float64)
+    
+    nsube = np.empty(nevents,dtype=np.int32)
+    ndcy = np.empty(nevents,dtype=np.int32)
+    ngate = np.empty(nevents,dtype=np.int32)
+    nbye = np.empty(nevents,dtype=np.int32)
+
+
+    for ev in range(nevents):
+        pid[ev] = secondaries.tree.ipv[0]
+        event_id[ev] = ev
+        root_file[ev] = infile
+
+        position[ev] = np.array([secondaries.tree.posv[0], secondaries.tree.posv[1],secondaries.tree.posv[2]])
+        direction[ev] = np.array([secondaries.tree.dirv[0], secondaries.tree.dirv[1],secondaries.tree.dirv[2]])
+        momentum[ev] = secondaries.tree.pmomv[0]
+
+        potot[ev] = secondaries.tree.potot
+        nhit[ev] = secondaries.tree.nhit
+        pomax[ev] = secondaries.tree.pomax
+        potota[ev] = secondaries.tree.potota
+        nhita[ev] = secondaries.tree.nhita
+        nhitac[ev] = secondaries.tree.nhitac
+        pomaxa[ev] = secondaries.tree.pomaxa
+        evis[ev] = secondaries.tree.evis
+
+        nsube[ev] = secondaries.tree.nsube
+        ndcy[ev] = secondaries.tree.ndcy
+        ngate[ev] = secondaries.tree.ngate
+        nbye[ev] = secondaries.tree.nbye
+
+        nscndprt[ev]  = secondaries.tree.nscndprt
+        vtxscnd[ev]  = secondaries.tree.vtxscnd
+        pscnd[ev]  = secondaries.tree.pscnd
+        iprtscnd[ev]  = secondaries.tree.iprtscnd
+        tscnd[ev]  = secondaries.tree.tscnd
+        iprntprt[ev]  = secondaries.tree.iprntprt
+        lmecscnd[ev]  = secondaries.tree.lmecscnd
+        iorgprt[ev]  = secondaries.tree.iorgprt
+        nchilds[ev]  = secondaries.tree.nchilds
+        pprnt[ev]  = secondaries.tree.pprnt
+        pprntinit[ev]  = secondaries.tree.pprntinit
+        vtxprnt[ev]  = secondaries.tree.vtxprnt
+
+    dump_secondaries_data(outfile, pid, event_id, root_file, nhit, potot, pomax, potota, nhita, nhitac, 
+                          pomaxa, evis, nsube, ndcy, ngate, nbye,
+                          nscndprt, vtxscnd, pscnd, iprtscnd, tscnd, iprntprt, lmecscnd,
+                          iorgprt, nchilds, pprnt, pprntinit, vtxprnt,   
+                           position, direction, momentum)
+
+def dump_secondaries_data(outfile, pid, event_id, root_file, nhit, potot, pomax, potota, nhita, nhitac, 
+                          pomaxa, evis, nsube, ndcy, ngate, nbye,
+                          nscndprt, vtxscnd, pscnd, iprtscnd, tscnd, iprntprt, lmecscnd,
+                          iorgprt, nchilds, pprnt, pprntinit, vtxprnt,   
+                           position, direction, momentum):
+
+    f = h5py.File(outfile+'_secondaries.hy', 'w')
+
+    total_rows = pid.shape[0]
+
+    dset_labels = f.create_dataset("labels",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_IDX = f.create_dataset("event_ids",
+                                shape=(total_rows,),
+                                dtype=np.int32)
+    dset_PATHS=f.create_dataset("root_files",
+                                shape=(total_rows,),
+                                dtype=h5py.special_dtype(vlen=str))
+    dset_position = f.create_dataset("position",
+                                      shape=(total_rows, 1, 3),
+                                      dtype=np.float32)
+    dset_direction = f.create_dataset("direction",
+                                      shape=(total_rows, 1, 3),
+                                      dtype=np.float32)
+    dset_momentum = f.create_dataset("momentum",
+                                   shape=(total_rows,),
+                                   dtype=np.float64)
+    dset_nhit = f.create_dataset("nhit",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_potot = f.create_dataset("potot",
+                                   shape=(total_rows,),
+                                   dtype=np.float64)
+    dset_pomax = f.create_dataset("pomax",
+                                   shape=(total_rows,),
+                                   dtype=np.float64)
+    dset_potota = f.create_dataset("potota",
+                                   shape=(total_rows,),
+                                   dtype=np.float64)
+    dset_nhita = f.create_dataset("nhita",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_nhitac = f.create_dataset("nhitac",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_pomaxa = f.create_dataset("pomaxa",
+                                   shape=(total_rows,),
+                                   dtype=np.float64)
+    dset_evis = f.create_dataset("evis",
+                                   shape=(total_rows,),
+                                   dtype=np.float64)
+    dset_nsube = f.create_dataset("nsube",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_ndcy = f.create_dataset("ndcy",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_ngate = f.create_dataset("ngate",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_nbye = f.create_dataset("nbye",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_nscndprt = f.create_dataset("nscndprt",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_vtxscnd = f.create_dataset("vtxscnd",
+                                   shape=(total_rows),
+                                   dtype=object)
+    dset_pscnd = f.create_dataset("pscnd",
+                                   shape=(total_rows,),
+                                   dtype=np.float64)
+    dset_iprtscnd = f.create_dataset("iprtscnd",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_tscnd = f.create_dataset("tscnd",
+                                   shape=(total_rows,),
+                                   dtype=np.float64)
+    dset_iprntprt = f.create_dataset("iprntprt",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_lmecscnd = f.create_dataset("lmecscnd",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_iorgprt = f.create_dataset("iorgprt",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_nchilds = f.create_dataset("nchilds",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_pprnt = f.create_dataset("pprnt",
+                                   shape=(total_rows,1,3),
+                                   dtype=np.float64)
+    dset_pprntinit = f.create_dataset("pprntinit",
+                                   shape=(total_rows,1,3),
+                                   dtype=np.float64)
+    dset_vtxprnt = f.create_dataset("vtxprnt",
+                                   shape=(total_rows,1,3),
+                                   dtype=np.float64)
+
+                                   
+
+    dset_labels[0:pid.shape[0]] = pid
+    dset_IDX[0:pid.shape[0]] = event_id
+    dset_PATHS[0:pid.shape[0]] = root_file
+    dset_position[0:pid.shape[0], :, :] = position.reshape(-1, 1, 3)
+    dset_direction[0:pid.shape[0], :, :] = direction.reshape(-1, 1, 3)
+    dset_momentum[0:pid.shape[0]] = momentum
+    dset_nhit[0:pid.shape[0]] = nhit
+
+    dset_potot[0:pid.shape[0]] = potot
+    dset_potota[0:pid.shape[0]] = potota
+    dset_pomax[0:pid.shape[0]] = pomax
+    dset_nhita[0:pid.shape[0]] = nhita
+    dset_nhitac[0:pid.shape[0]] = nhitac
+    dset_pomaxa[0:pid.shape[0]] = pomaxa
+    dset_evis[0:pid.shape[0]] = evis
+    dset_nsube[0:pid.shape[0]] = nsube
+    dset_ndcy[0:pid.shape[0]] = ndcy
+    dset_ngate[0:pid.shape[0]] = ngate
+    dset_nbye[0:pid.shape[0]] = nbye
+
+    dset_nscndprt[0:pid.shape[0]] = nscndprt
+    dset_vtxscnd[0:pid.shape[0]] = vtxscnd
+    dset_pscnd[0:pid.shape[0]] = pscnd
+    dset_iprtscnd[0:pid.shape[0]] = iprtscnd
+    dset_tscnd[0:pid.shape[0]] = tscnd
+    dset_iprntprt[0:pid.shape[0]] = iprntprt
+    dset_lmecscnd[0:pid.shape[0]] = lmecscnd
+    dset_iorgprt[0:pid.shape[0]] = iorgprt
+    dset_nchilds[0:pid.shape[0]] = nchilds
+    dset_pprnt[0:pid.shape[0]] = pprnt
+    dset_pprntinit[0:pid.shape[0]] = pprntinit
+    dset_vtxprnt[0:pid.shape[0]] = vtxprnt
+
+    f.close()
+
+
+
+
+def dump_file_fitqun(infile, outfile, label, customTree=True):
+    print(infile)
+    fitqun = fiTQun(infile, customTree)
     nevents = fitqun.nevent
 
     pid = np.empty(nevents, dtype=np.int32)
     event_id = np.empty(nevents, dtype=np.int32)
     root_file = np.empty(nevents, dtype=object)
 
+    position = np.empty((nevents, 3), dtype=np.float64)
+    direction = np.empty((nevents, 3), dtype=np.float64)
+    momentum = np.empty(nevents,dtype=np.float64)
+    nhit = np.empty(nevents,dtype=np.int32)
+
+    qtot = np.empty(nevents, dtype=np.float64)
+
     e_1rnll = np.empty(nevents, dtype=np.float64)
     mu_1rnll = np.empty(nevents, dtype=np.float64)
+    pi_1rnll = np.empty(nevents, dtype=np.float64)
 
     e_1rmom = np.empty(nevents, dtype=np.float64)
     mu_1rmom = np.empty(nevents, dtype=np.float64)
+    pi_1rmom = np.empty(nevents, dtype=np.float64)
 
     e_1rpos = np.empty((nevents, 3), dtype=np.float64)
     mu_1rpos = np.empty((nevents, 3), dtype=np.float64)
+    pi_1rpos = np.empty((nevents, 3), dtype=np.float64)
 
     e_1rdir = np.empty((nevents, 3), dtype=np.float64)
     mu_1rdir = np.empty((nevents, 3), dtype=np.float64)
+    pi_1rdir = np.empty((nevents, 3), dtype=np.float64)
 
 
     for ev in range(nevents):
         fitqun.get_event(ev)
-        pid[ev] = label
+        if label == -1:
+            pid[ev] = fitqun.tree.ipv[0]
+        else:
+            pid[ev] = int(float(label))
         event_id[ev] = ev
         root_file[ev] = infile
 
         #Check if there is only 1 ring
         if fitqun.tree.fqnse < 2:
-            print(fitqun.tree.fq1rnll[1])
+            #print(f"pos 0: {np.array(fitqun.tree.fq1rpos)[0:3]}, 1: {np.array(fitqun.tree.fq1rpos)[3:6]}, 2: {np.array(fitqun.tree.fq1rpos)[6:9]}, 3: {np.array(fitqun.tree.fq1rpos)[9:12]}")
+
+            qtot[ev] = fitqun.tree.fqtotq[0]
 
             e_1rnll[ev] = fitqun.tree.fq1rnll[1]
             mu_1rnll[ev] = fitqun.tree.fq1rnll[2]
+            pi_1rnll[ev] = fitqun.tree.fq1rnll[3]
 
             e_1rmom[ev] = fitqun.tree.fq1rmom[1]
             mu_1rmom[ev] = fitqun.tree.fq1rmom[2]
+            pi_1rmom[ev] = fitqun.tree.fq1rmom[3]
 
-            e_1rpos[ev] = fitqun.tree.fq1rpos[1]
-            mu_1rpos[ev] = fitqun.tree.fq1rpos[2]
+            if not customTree:
+                position[ev] = np.array([fitqun.tree.posv[0], fitqun.tree.posv[1],fitqun.tree.posv[2]])
+                direction[ev] = np.array([fitqun.tree.dirv[0], fitqun.tree.dirv[1],fitqun.tree.dirv[2]])
+                momentum[ev] = fitqun.tree.pmomv[0]
+            nhit[ev] = fitqun.tree.nhit
 
-            e_1rdir[ev] = fitqun.tree.fq1rdir[1]
-            mu_1rdir[ev] = fitqun.tree.fq1rdir[2]
+            e_1rpos[ev] = np.array([fitqun.tree.fq1rpos[3], fitqun.tree.fq1rpos[4],fitqun.tree.fq1rpos[5]])
+            mu_1rpos[ev] = np.array([fitqun.tree.fq1rpos[6], fitqun.tree.fq1rpos[7],fitqun.tree.fq1rpos[8]])
+            pi_1rpos[ev] = np.array([fitqun.tree.fq1rpos[9], fitqun.tree.fq1rpos[10],fitqun.tree.fq1rpos[11]])
+
+            e_1rdir[ev] = np.array([fitqun.tree.fq1rdir[3], fitqun.tree.fq1rdir[4],fitqun.tree.fq1rdir[5]])
+            mu_1rdir[ev] = np.array([fitqun.tree.fq1rdir[6], fitqun.tree.fq1rdir[7],fitqun.tree.fq1rdir[8]])
+            pi_1rdir[ev] = np.array([fitqun.tree.fq1rdir[9], fitqun.tree.fq1rdir[10],fitqun.tree.fq1rdir[11]])
 
         #Only look at first ring if more than 1
         else:
             print(fitqun.tree.fq1rnll[1])
             e_1rnll[ev] = fitqun.tree.fq1rnll[1]
             mu_1rnll[ev] = fitqun.tree.fq1rnll[2]
+            pi_1rnll[ev] = fitqun.tree.fq1rnll[3]
 
             e_1rmom[ev] = fitqun.tree.fq1rmom[1]
             mu_1rmom[ev] = fitqun.tree.fq1rmom[2]
+            pi_1rmom[ev] = fitqun.tree.fq1rmom[3]
 
-            e_1rpos[ev] = fitqun.tree.fq1rpos[1]
-            mu_1rpos[ev] = fitqun.tree.fq1rpos[2]
+            if not customTree:
+                position[ev] = np.array([fitqun.tree.posv[0], fitqun.tree.posv[1],fitqun.tree.posv[2]])
+                direction[ev] = np.array([fitqun.tree.dirv[0], fitqun.tree.dirv[1],fitqun.tree.dirv[2]])
+                momentum[ev] = fitqun.tree.pmomv[0]
+            nhit[ev] = fitqun.tree.nhit
+            qtot[ev] = fitqun.tree.fqtotq[0]
 
-            e_1rdir[ev] = fitqun.tree.fq1rdir[1]
-            mu_1rdir[ev] = fitqun.tree.fq1rdir[2]
+            e_1rpos[ev] = np.array([fitqun.tree.fq1rpos[3], fitqun.tree.fq1rpos[4],fitqun.tree.fq1rpos[5]])
+            mu_1rpos[ev] = np.array([fitqun.tree.fq1rpos[6], fitqun.tree.fq1rpos[7],fitqun.tree.fq1rpos[8]])
+            pi_1rpos[ev] = np.array([fitqun.tree.fq1rpos[9], fitqun.tree.fq1rpos[10],fitqun.tree.fq1rpos[11]])
 
-    dump_fitqun_data(outfile, pid, event_id, root_file, e_1rnll, mu_1rnll, e_1rmom, mu_1rmom, e_1rpos, mu_1rpos, e_1rdir, mu_1rdir)
+            e_1rdir[ev] = np.array([fitqun.tree.fq1rdir[3], fitqun.tree.fq1rdir[4],fitqun.tree.fq1rdir[5]])
+            mu_1rdir[ev] = np.array([fitqun.tree.fq1rdir[6], fitqun.tree.fq1rdir[7],fitqun.tree.fq1rdir[8]])
+            pi_1rdir[ev] = np.array([fitqun.tree.fq1rdir[9], fitqun.tree.fq1rdir[10],fitqun.tree.fq1rdir[11]])
 
-def dump_fitqun_data(outfile, pid, event_id, root_file, e_1rnll, mu_1rnll, e_1rmom, mu_1rmom, e_1rpos, mu_1rpos, e_1rdir, mu_1rdir):
+    dump_fitqun_data(outfile, pid, event_id, root_file, e_1rnll, mu_1rnll, pi_1rnll, e_1rmom, mu_1rmom, pi_1rmom, e_1rpos, mu_1rpos, pi_1rpos, e_1rdir, mu_1rdir, pi_1rdir, position, direction, momentum, nhit, qtot)
+
+def dump_fitqun_data(outfile, pid, event_id, root_file, e_1rnll, mu_1rnll, pi_1rnll, e_1rmom, mu_1rmom, pi_1rmom, e_1rpos, mu_1rpos, pi_1rpos, e_1rdir, mu_1rdir, pi_1rdir, position, direction, momentum, nhit, qtot):
 
     f = h5py.File(outfile+'_fitqun.hy', 'w')
 
@@ -234,10 +506,28 @@ def dump_fitqun_data(outfile, pid, event_id, root_file, e_1rnll, mu_1rnll, e_1rm
     dset_PATHS=f.create_dataset("root_files",
                                 shape=(total_rows,),
                                 dtype=h5py.special_dtype(vlen=str))
+    dset_position = f.create_dataset("position",
+                                      shape=(total_rows, 1, 3),
+                                      dtype=np.float32)
+    dset_direction = f.create_dataset("direction",
+                                      shape=(total_rows, 1, 3),
+                                      dtype=np.float32)
+    dset_momentum = f.create_dataset("momentum",
+                                   shape=(total_rows,),
+                                   dtype=np.float64)
+    dset_nhit = f.create_dataset("nhit",
+                                   shape=(total_rows,),
+                                   dtype=np.int32)
+    dset_qtot = f.create_dataset("qtot",
+                                   shape=(total_rows,),
+                                   dtype=np.float64)
     dset_e_1rnll = f.create_dataset("e_1rnll",
                                    shape=(total_rows, 1),
                                    dtype=np.float64)
     dset_mu_1rnll = f.create_dataset("mu_1rnll",
+                                   shape=(total_rows, 1),
+                                   dtype=np.float64)
+    dset_pi_1rnll = f.create_dataset("pi_1rnll",
                                    shape=(total_rows, 1),
                                    dtype=np.float64)
     dset_e_1rmom = f.create_dataset("e_1rmom",
@@ -246,10 +536,16 @@ def dump_fitqun_data(outfile, pid, event_id, root_file, e_1rnll, mu_1rnll, e_1rm
     dset_mu_1rmom = f.create_dataset("mu_1rmom",
                                    shape=(total_rows, 1),
                                    dtype=np.float64)
+    dset_pi_1rmom = f.create_dataset("pi_1rmom",
+                                   shape=(total_rows, 1),
+                                   dtype=np.float64)
     dset_e_1rpos = f.create_dataset("e_1rpos",
                                       shape=(total_rows, 1, 3),
                                       dtype=np.float32)
     dset_mu_1rpos = f.create_dataset("mu_1rpos",
+                                      shape=(total_rows, 1, 3),
+                                      dtype=np.float32)
+    dset_pi_1rpos = f.create_dataset("pi_1rpos",
                                       shape=(total_rows, 1, 3),
                                       dtype=np.float32)
     dset_e_1rdir = f.create_dataset("e_1rdir",
@@ -258,18 +554,29 @@ def dump_fitqun_data(outfile, pid, event_id, root_file, e_1rnll, mu_1rnll, e_1rm
     dset_mu_1rdir = f.create_dataset("mu_1rdir",
                                       shape=(total_rows, 1, 3),
                                       dtype=np.float32)
-
+    dset_pi_1rdir = f.create_dataset("pi_1rdir",
+                                      shape=(total_rows, 1, 3),
+                                      dtype=np.float32)
     dset_labels[0:pid.shape[0]] = pid
     dset_IDX[0:pid.shape[0]] = event_id
     dset_PATHS[0:pid.shape[0]] = root_file
+    dset_position[0:pid.shape[0], :, :] = position.reshape(-1, 1, 3)
+    dset_direction[0:pid.shape[0], :, :] = direction.reshape(-1, 1, 3)
+    dset_momentum[0:pid.shape[0]] = momentum
+    dset_nhit[0:pid.shape[0]] = nhit
+    dset_qtot[0:pid.shape[0]] = qtot
     dset_e_1rnll[0:pid.shape[0], :] = e_1rnll.reshape(-1, 1)
     dset_mu_1rnll[0:pid.shape[0], :] = mu_1rnll.reshape(-1, 1)
+    dset_pi_1rnll[0:pid.shape[0], :] = pi_1rnll.reshape(-1, 1)
     dset_e_1rmom[0:pid.shape[0], :] = e_1rmom.reshape(-1, 1)
     dset_mu_1rmom[0:pid.shape[0], :] = mu_1rmom.reshape(-1, 1)
+    dset_pi_1rmom[0:pid.shape[0], :] = pi_1rmom.reshape(-1, 1)
     dset_e_1rpos[0:pid.shape[0], :, :] = e_1rpos.reshape(-1, 1, 3)
     dset_mu_1rpos[0:pid.shape[0], :, :] = mu_1rpos.reshape(-1, 1, 3)
+    dset_pi_1rpos[0:pid.shape[0], :, :] = pi_1rpos.reshape(-1, 1, 3)
     dset_e_1rdir[0:pid.shape[0], :, :] = e_1rdir.reshape(-1, 1, 3)
     dset_mu_1rdir[0:pid.shape[0], :, :] = mu_1rdir.reshape(-1, 1, 3)
+    dset_pi_1rdir[0:pid.shape[0], :, :] = pi_1rdir.reshape(-1, 1, 3)
 
     f.close()
 
@@ -647,34 +954,10 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_energies = f.create_dataset("energies",
                                      shape=(total_rows, 1),
                                      dtype=np.float32)
-    dset_electron_energies = f.create_dataset("energies_electron",
-                                     shape=(total_rows, 1),
-                                     dtype=np.float32)
-    dset_decay_electron_exists = f.create_dataset("decay_electron_exists",
-                                     shape=(total_rows, 1),
-                                     dtype=np.float32)
-    dset_decay_electron_energy = f.create_dataset("decay_electron_energy",
-                                     shape=(total_rows, 1),
-                                     dtype=np.float32)
-    dset_decay_electron_time = f.create_dataset("decay_electron_time",
-                                     shape=(total_rows, 1),
-                                     dtype=np.float32)
-    dset_positron_energies = f.create_dataset("energies_positron",
-                                     shape=(total_rows, 1),
-                                     dtype=np.float32)
-    dset_primary_charged_range = f.create_dataset("primary_charged_range",
-                                      shape=(total_rows, 1),
-                                      dtype=np.float32)
     dset_positions = f.create_dataset("positions",
                                       shape=(total_rows, 1, 3),
                                       dtype=np.float32)
     dset_directions=f.create_dataset("directions",
-                                    shape=(total_rows, 1, 3),
-                                    dtype=np.float32)
-    dset_electron_directions=f.create_dataset("directions_electron",
-                                    shape=(total_rows, 1, 3),
-                                    dtype=np.float32)
-    dset_positron_directions=f.create_dataset("directions_positron",
                                     shape=(total_rows, 1, 3),
                                     dtype=np.float32)
     dset_angles = f.create_dataset("angles",
@@ -686,9 +969,6 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_veto2 = f.create_dataset("veto2",
                                   shape=(total_rows,),
                                   dtype=np.bool_)
-    dset_gamma_start_vtx = f.create_dataset("gamma_start_vtx",
-                                    shape=(total_rows, 1, 3),
-                                    dtype=np.float32)
                         
 
     good_events = ~np.isnan(file_event_triggers)
@@ -698,23 +978,14 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
     dset_IDX[offset:offset_next] = event_id
     dset_PATHS[offset:offset_next] = infile
     dset_energies[offset:offset_next, :] = energy.reshape(-1, 1)
-    dset_electron_energies[offset:offset_next, :] = electron_energy.reshape(-1, 1) 
-    dset_positron_energies[offset:offset_next, :] = positron_energy.reshape(-1, 1)
     dset_positions[offset:offset_next, :, :] = position.reshape(-1, 1, 3)
-    dset_primary_charged_range[offset:offset_next, :] = primary_charged_range.reshape(-1, 1)
     dset_directions[offset:offset_next, :, :] = direction.reshape(-1, 1, 3)
-    dset_electron_directions[offset:offset_next, :, :] = electron_direction.reshape(-1, 1, 3)
-    dset_positron_directions[offset:offset_next, :, :] = positron_direction.reshape(-1, 1, 3)
-    dset_decay_electron_exists[offset:offset_next, :] = decay_electron_exists.reshape(-1, 1)
-    dset_decay_electron_energy[offset:offset_next, :] = decay_electron_energy.reshape(-1, 1)
-    dset_decay_electron_time[offset:offset_next, :] = decay_electron_time.reshape(-1, 1)
 
     labels = np.full(pid.shape[0], -1)
     label_map = {13: 0, 11: 1, 22: 2, 211: 2}
     for k, v in label_map.items():
         labels[pid == k] = v
     dset_labels[offset:offset_next] = labels
-    dset_gamma_start_vtx[offset:offset_next, :, :] = gamma_start_vtx.reshape(-1, 1, 3)
 
 
     polars = np.arccos(direction[:, 1])

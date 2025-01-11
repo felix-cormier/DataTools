@@ -10,11 +10,32 @@ print(os.path.abspath(ROOT.__file__))
 
 
 class fiTQun:
+    def __init__(self,infile,customTree=True) -> None:
+        inFile = ROOT.TFile.Open(infile ,"READ")
+        #print(dir(inFile))
+        self.file = inFile
+        if customTree:
+            tree = inFile.fiTQun
+        else:
+            tree = inFile.h1
+        self.tree = tree
+        self.nevent = tree.GetEntries()
+        #self.tree.GetEvent(0)
+        #print(f'num trigs?: {len(self.tree.T)}')
+        #print(f'nvc: {self.tree.nvc}, 0: {self.tree.ID[0]}, 1: {self.tree.ID[1]}, 3: {self.tree.ID[2]}')
+
+    def get_event(self, ev):
+        # Delete previous triggers to prevent memory leak (only if file does not change)
+        print(ev)
+        self.tree.GetEvent(ev)
+        self.current_event = ev
+
+class secondaries_root:
     def __init__(self,infile) -> None:
         inFile = ROOT.TFile.Open(infile ,"READ")
         #print(dir(inFile))
         self.file = inFile
-        tree = inFile.fiTQun
+        tree = inFile.h1
         self.tree = tree
         self.nevent = tree.GetEntries()
         #self.tree.GetEvent(0)
@@ -49,6 +70,20 @@ class SKDETSIM:
     def get_event_info(self):
         self.tree.GetEvent(self.current_event)
         mass_correction = 0
+        if len(self.tree.ipvc) == 0:
+            return {
+                "pid": -1,
+                #End for photon decay vertex, position for photon production vertex
+                "position": [-9999, -9999, -9999],# e+ / e- should have same position
+                "gamma_start_vtx": [-999,-999,-999], # e+ / e- should have same position
+                "isConversion": False,
+                "energy_electron": -999,
+                "energy_positron": -999,
+                "direction_electron": [-999,-999,-999],
+                "direction_positron": [-999,-999,-999],
+                "direction": [-9999, -9999, -9999],
+                "energy": -1
+            }
         if self.tree.ipvc[0] == 11:
             mass_correction = 0.5
         elif self.tree.ipvc[0] == 13:
