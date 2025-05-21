@@ -581,7 +581,7 @@ def dump_fitqun_data(outfile, pid, event_id, root_file, e_1rnll, mu_1rnll, pi_1r
     f.close()
 
 
-def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_height = 1810, create_image_file=False, create_geo_file=False):
+def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_height = 1810, create_image_file=False, create_geo_file=False, do_decayE=False):
 
     # All data arrays are initialized here
     skdetsim = SKDETSIM(infile)
@@ -683,12 +683,12 @@ def dump_file_skdetsim(infile, outfile, save_npz=False, radius = 1690, half_heig
         event_id[ev] = ev
         root_file[ev] = infile
 
-    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, primary_charged_range, decay_electron_exists, decay_electron_energy, decay_electron_time, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=False)
+    dump_digi_hits(outfile, root_file, radius, half_height, event_id, pid, position, primary_charged_range, decay_electron_exists, decay_electron_energy, decay_electron_time, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=False, do_decayE=do_decayE)
 
     del skdetsim
 
 
-def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810, create_image_file=False, create_geo_file=False):
+def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810, create_image_file=False, create_geo_file=False, do_decayE=False):
     """Takes in root file, outputs h5py file
 
     Args:
@@ -885,7 +885,7 @@ def dump_file(infile, outfile, save_npz=False, radius = 1690, half_height = 1810
                             )
     del wcsim
 
-def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position, primary_charged_range, decay_electron_exists, decay_electron_energy, decay_electron_time, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=True):
+def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position, primary_charged_range, decay_electron_exists, decay_electron_energy, decay_electron_time, isConversion, gamma_start_vtx, direction, energy, electron_energy, electron_direction, positron_energy, positron_direction, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or, digi_hit_charge, digi_hit_time, digi_hit_trigger, track_pid, track_energy, track_start_position, track_stop_position, trigger_time, trigger_type, save_tracks=True, do_decayE=False):
     """Save the digi hits, event variables
 
     Args:
@@ -1008,18 +1008,79 @@ def dump_digi_hits(outfile, infile, radius, half_height, event_id, pid, position
             dset_veto2[offset+i] = np.any(above_threshold & outside_tank)
 
     for i, (trigs, times, charges, pmts, pmt_pos, pmt_or) in enumerate(zip(hit_triggers, digi_hit_time, digi_hit_charge, digi_hit_pmt, digi_hit_pmt_pos, digi_hit_pmt_or)):
-        dset_event_hit_index[offset+i] = hit_offset
         hit_indices = np.where(trigs == event_triggers[i])[0]
-        hit_offset_next += len(hit_indices)
-        dset_hit_time[hit_offset:hit_offset_next] = times[hit_indices]
-        dset_hit_charge[hit_offset:hit_offset_next] = charges[hit_indices]
-        dset_hit_pmt[hit_offset:hit_offset_next] = pmts[hit_indices]
-        pmt_pos = np.array(pmt_pos)
-        pmt_or = np.array(pmt_or)
-        #This somehow breaks if there's no PMTs, so skip if that happens
-        if hit_offset == hit_offset_next:
-            pass
-        hit_offset = hit_offset_next
+
+        if do_decayE:
+            event_time = times[hit_indices]
+            bin_content, bin_edges = np.histogram(event_time, bins=100, range=[1500,10000])
+            indices = np.argsort(bin_content)
+            sorted_bin_content = bin_content[indices]
+            sorted_bin_edges = bin_edges[indices]
+            n = len(sorted_bin_content)
+
+            if n % 2 == 1:
+                # Odd number of elements: take the middle one
+                tmp_median = sorted_bin_content[n // 2]
+            else:
+                # Even number of elements: take the average of the two middle ones
+                tmp_median = (sorted_bin_content[n // 2 - 1] + sorted_bin_content[n // 2]) / 2
+            tmp_max = np.amax(sorted_bin_content)
+            tmp_time = sorted_bin_edges[-1]
+            maxOverMedian = tmp_max/tmp_median
+            #Determined 15. cut for decay E
+            if maxOverMedian > 15 and tmp_time > 2000:
+
+                #Define charge and time
+                event_charge = charges[hit_indices]
+                event_pmt = pmts[hit_indices]
+
+                #Only keep times 500ns less than peak, and 700 more than peak, to keep consistent with NQISK
+                decay_e_pmt_time = event_time[(event_time > (tmp_time - 500)) & (event_time < (tmp_time + 700))]
+                decay_e_pmt_charge = event_charge[(event_time > (tmp_time - 500)) & (event_time < (tmp_time + 700))]
+                decay_e_pmt_pmts = event_pmt[(event_time > (tmp_time - 500)) & (event_time < (tmp_time + 700))]
+
+                dset_event_hit_index[offset+i] = hit_offset
+                hit_offset_next += len(decay_e_pmt_time)
+
+                #Offset time so that peak is at 1050, same as regular event
+                dset_hit_time[hit_offset:hit_offset_next] = decay_e_pmt_time - (tmp_time - 1050)
+                dset_hit_charge[hit_offset:hit_offset_next] = decay_e_pmt_charge
+                dset_hit_pmt[hit_offset:hit_offset_next] = decay_e_pmt_pmts
+                pmt_pos = np.array(pmt_pos)
+                pmt_or = np.array(pmt_or)
+                #This somehow breaks if there's no PMTs, so skip if that happens
+                if hit_offset == hit_offset_next:
+                    pass
+                hit_offset = hit_offset_next
+
+            else:
+                dset_event_hit_index[offset+i] = hit_offset
+                hit_offset_next += 0
+                hit_indices = np.empty(0)
+
+                dset_hit_time[hit_offset:hit_offset_next] = times[hit_indices]
+                dset_hit_charge[hit_offset:hit_offset_next] = charges[hit_indices]
+                dset_hit_pmt[hit_offset:hit_offset_next] = pmts[hit_indices]
+                pmt_pos = np.array(pmt_pos)
+                pmt_or = np.array(pmt_or)
+                #This somehow breaks if there's no PMTs, so skip if that happens
+                if hit_offset == hit_offset_next:
+                    pass
+                hit_offset = hit_offset_next
+
+        else:
+            dset_event_hit_index[offset+i] = hit_offset
+            hit_offset_next += len(hit_indices)
+
+            dset_hit_time[hit_offset:hit_offset_next] = times[hit_indices]
+            dset_hit_charge[hit_offset:hit_offset_next] = charges[hit_indices]
+            dset_hit_pmt[hit_offset:hit_offset_next] = pmts[hit_indices]
+            pmt_pos = np.array(pmt_pos)
+            pmt_or = np.array(pmt_or)
+            #This somehow breaks if there's no PMTs, so skip if that happens
+            if hit_offset == hit_offset_next:
+                pass
+            hit_offset = hit_offset_next
 
     offset = offset_next
     f.close()
